@@ -3,24 +3,31 @@
   import { ui } from '$lib/stores/ui.svelte';
 
   function handleReset(): void {
+    // "Try another PDF" is an explicit destructive action — reset everything.
     pdf.reset();
   }
 
   function handleKey(e: KeyboardEvent): void {
-    // Escape dismisses the error overlay and returns to the empty state.
+    // Escape dismisses the error overlay non-destructively.
     //
-    // Gate: only run this if the theme popover isn't also open. If both
-    // overlays exist simultaneously (rare but real — e.g., load error
-    // while the popover was open), pressing Esc would fire BOTH window
-    // handlers: ThemePopover would close itself AND this would reset the
-    // document. The user probably meant to just dismiss the popover.
+    // If a document is currently loaded (e.g., the error came from a failed
+    // SWAP attempt — `pdf.doc` still points at the previously loaded doc),
+    // clearError() only resets the error state and leaves the document intact.
+    // The user goes back to reading whatever they had open before.
+    //
+    // If no document is loaded (e.g., the error came from the very first
+    // load attempt), clearError() returns to 'idle' which shows the empty
+    // state. Either way, the Escape is NEVER destructive to an open doc.
+    //
+    // Also gated on !themePopoverOpen so simultaneous open overlays don't
+    // double-handle Escape (the popover's own Esc handler wins).
     if (
       e.key === 'Escape' &&
       pdf.loadingState === 'error' &&
       !ui.themePopoverOpen
     ) {
       e.preventDefault();
-      pdf.reset();
+      pdf.clearError();
     }
   }
 </script>

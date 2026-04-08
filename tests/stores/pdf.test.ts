@@ -131,6 +131,40 @@ describe('pdf store', () => {
     expect(oldDoc.destroy).toHaveBeenCalledOnce();
   });
 
+  it('clearError returns to ready when a document is loaded (error from failed swap)', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    // Load a document, then simulate a failed swap (setError while doc still present)
+    pdf.setDocument({ numPages: 5, destroy: vi.fn() } as any, 'working.pdf');
+    pdf.setError('swap failed');
+    expect(pdf.loadingState).toBe('error');
+    expect(pdf.doc).not.toBeNull(); // working doc still there
+
+    pdf.clearError();
+    expect(pdf.loadingState).toBe('ready');
+    expect(pdf.doc).not.toBeNull(); // still there — non-destructive!
+    expect(pdf.filename).toBe('working.pdf');
+    expect(pdf.errorMessage).toBe('');
+  });
+
+  it('clearError returns to idle when no document is loaded', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    pdf.setError('first-load failed');
+    expect(pdf.loadingState).toBe('error');
+    expect(pdf.doc).toBeNull();
+
+    pdf.clearError();
+    expect(pdf.loadingState).toBe('idle');
+    expect(pdf.doc).toBeNull();
+  });
+
+  it('clearError is a no-op when not in error state', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    pdf.setDocument({ numPages: 5, destroy: vi.fn() } as any, 'a.pdf');
+    expect(pdf.loadingState).toBe('ready');
+    pdf.clearError();
+    expect(pdf.loadingState).toBe('ready'); // unchanged
+  });
+
   it('reset swallows rejections from destroy() (pdf.js cancellation)', async () => {
     const { pdf } = await import('../../src/lib/stores/pdf.svelte');
     const cancellationError = new Error('Rendering cancelled');

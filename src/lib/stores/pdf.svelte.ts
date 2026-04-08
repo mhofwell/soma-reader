@@ -45,6 +45,21 @@ class PdfStore {
     this.errorMessage = message;
   }
 
+  /**
+   * Clear an error state WITHOUT resetting the loaded document. Used when
+   * the user dismisses a load-failure error (e.g., a failed swap attempt
+   * while a working document is still open underneath) — they want to
+   * dismiss the error, not destroy the document they were reading.
+   *
+   * If no document is loaded, resets to idle. If a document IS loaded,
+   * returns to 'ready' state.
+   */
+  clearError(): void {
+    if (this.loadingState !== 'error') return;
+    this.errorMessage = '';
+    this.loadingState = this.doc !== null ? 'ready' : 'idle';
+  }
+
   goToPage(n: number): void {
     if (this.numPages === 0) return;
     this.currentPage = Math.max(1, Math.min(this.numPages, n));

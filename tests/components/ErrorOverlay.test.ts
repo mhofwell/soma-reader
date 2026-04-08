@@ -60,4 +60,26 @@ describe('ErrorOverlay', () => {
     // mounted in this test) would have closed. The document stays.
     expect(pdf.loadingState).toBe('error');
   });
+
+  it('Escape after a failed SWAP keeps the working document loaded', async () => {
+    // Regression for Codex Round 3 P1: a user opens a PDF, then tries to
+    // open a different PDF that fails, then presses Esc to dismiss. The
+    // old implementation called pdf.reset() and destroyed the working doc.
+    // The fix: Esc calls pdf.clearError() which only clears the error state
+    // and returns to 'ready' if a document is loaded.
+    pdf.setDocument({ numPages: 5, destroy: () => {} } as any, 'working.pdf');
+    pdf.setError('corrupt swap');
+    render(ErrorOverlay);
+
+    expect(pdf.loadingState).toBe('error');
+    expect(pdf.doc).not.toBeNull();
+    expect(pdf.filename).toBe('working.pdf');
+
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    // Error is cleared, but the working document stays loaded
+    expect(pdf.loadingState).toBe('ready');
+    expect(pdf.doc).not.toBeNull();
+    expect(pdf.filename).toBe('working.pdf');
+  });
 });
