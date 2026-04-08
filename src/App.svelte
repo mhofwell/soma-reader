@@ -10,6 +10,7 @@
   import { ui } from '$lib/stores/ui.svelte';
   import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
   import { loadPdfFromBuffer, PdfLoadError } from '$lib/pdf/loader';
+  import { matchShortcut } from '$lib/keyboard';
 
   let doqReady = $state(false);
 
@@ -88,6 +89,49 @@
     target.value = '';
   }
 
+  function handleGlobalKey(e: KeyboardEvent): void {
+    // Open file picker (empty state or swap)
+    if (matchShortcut(e, { key: 'o', meta: true })) {
+      e.preventDefault();
+      fileInputForSwap.click();
+      return;
+    }
+
+    // Toggle sidebar (only if a PDF is loaded)
+    if (matchShortcut(e, { key: '\\', meta: true })) {
+      e.preventDefault();
+      if (pdf.doc) ui.toggleSidebar();
+      return;
+    }
+
+    // Page navigation
+    if (e.key === 'ArrowRight' && pdf.doc) {
+      pdf.nextPage();
+      return;
+    }
+    if (e.key === 'ArrowLeft' && pdf.doc) {
+      pdf.prevPage();
+      return;
+    }
+
+    // Zoom
+    if ((e.key === '+' || e.key === '=') && pdf.doc) {
+      e.preventDefault();
+      ui.zoomIn();
+      return;
+    }
+    if (e.key === '-' && pdf.doc) {
+      e.preventDefault();
+      ui.zoomOut();
+      return;
+    }
+    if (e.key === '0' && pdf.doc) {
+      e.preventDefault();
+      ui.resetZoom();
+      return;
+    }
+  }
+
   let pillHideTimer: ReturnType<typeof setTimeout> | null = null;
   const PILL_IDLE_MS = 2500;
 
@@ -108,6 +152,7 @@
   ondragleave={handleDragLeave}
   ondrop={handleDrop}
   onmousemove={bumpPillVisibility}
+  onkeydown={handleGlobalKey}
 />
 
 <main class="app">
