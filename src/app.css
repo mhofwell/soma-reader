@@ -1,0 +1,32 @@
+:root {
+  --bg: #0f0f10;
+  --panel: #1a1a1c;
+  --panel-2: #232327;
+  --border: #2d2d33;
+  --text: #e8e8ea;
+  --text-dim: #8a8a92;
+  --text-faint: #50505a;
+  --accent: #6aa9ff;
+  --accent-2: #b894ff;
+  --error: #ff6b6b;
+  --success: #6ce5a5;
+  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+}
