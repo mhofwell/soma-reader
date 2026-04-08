@@ -45,11 +45,32 @@ describe('ui store', () => {
     expect(ui.zoomIndex).toBe(2);
   });
 
-  it('setSidebarCollapsed persists to localStorage', async () => {
+  it('sidebarCollapsed defaults to true on initial load (requirement: collapsed on refresh)', async () => {
     const { ui } = await import('../../src/lib/stores/ui.svelte');
-    ui.setSidebarCollapsed(true);
+    // After reset() (which beforeEach calls), the store should report
+    // sidebarCollapsed === true. This locks in the "collapsed on every
+    // refresh/visit" behavior.
     expect(ui.sidebarCollapsed).toBe(true);
-    expect(localStorage.getItem('pdfdark.sidebarCollapsed')).toBe('true');
+  });
+
+  it('setSidebarCollapsed does NOT persist to localStorage (session-only state)', async () => {
+    const { ui } = await import('../../src/lib/stores/ui.svelte');
+    ui.setSidebarCollapsed(false);
+    expect(ui.sidebarCollapsed).toBe(false);
+    // The key must not exist in localStorage — any value (including the
+    // JSON literal "false") would imply persistence.
+    expect(localStorage.getItem('pdfdark.sidebarCollapsed')).toBeNull();
+    ui.setSidebarCollapsed(true);
+    expect(localStorage.getItem('pdfdark.sidebarCollapsed')).toBeNull();
+  });
+
+  it('toggleSidebar flips the collapsed state (session-level open/close)', async () => {
+    const { ui } = await import('../../src/lib/stores/ui.svelte');
+    expect(ui.sidebarCollapsed).toBe(true); // default
+    ui.toggleSidebar();
+    expect(ui.sidebarCollapsed).toBe(false); // user opened it
+    ui.toggleSidebar();
+    expect(ui.sidebarCollapsed).toBe(true); // user closed it
   });
 
   it('setActiveThemeId persists', async () => {

@@ -16,7 +16,10 @@ const DEFAULT_THEME_ID: ThemeId = 'Firefox/Dark';
 
 class UiStore {
   zoomIndex = $state(DEFAULT_ZOOM_INDEX);
-  sidebarCollapsed = $state(readPersisted<boolean>('sidebarCollapsed', false));
+  // Sidebar starts collapsed on every page load / refresh. This is
+  // intentional and NOT persisted — the session state is transient.
+  // The user can open or close it at any time via the chevron or ⌘\\.
+  sidebarCollapsed = $state(true);
   activeThemeId = $state<ThemeId>(readPersisted<ThemeId>('activeThemeId', DEFAULT_THEME_ID));
   pillVisible = $state(true);
   themePopoverOpen = $state(false);
@@ -40,8 +43,9 @@ class UiStore {
   }
 
   setSidebarCollapsed(collapsed: boolean): void {
+    // Intentionally NOT persisted: sidebar starts collapsed on every
+    // page load. Session changes do not survive reloads.
     this.sidebarCollapsed = collapsed;
-    writePersisted('sidebarCollapsed', collapsed);
   }
 
   toggleSidebar(): void {
@@ -67,7 +71,7 @@ class UiStore {
 
   reset(): void {
     this.zoomIndex = DEFAULT_ZOOM_INDEX;
-    this.sidebarCollapsed = false;
+    this.sidebarCollapsed = true;
     this.activeThemeId = DEFAULT_THEME_ID;
     this.pillVisible = true;
     this.themePopoverOpen = false;

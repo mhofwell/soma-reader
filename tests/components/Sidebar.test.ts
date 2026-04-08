@@ -8,6 +8,10 @@ beforeEach(() => {
   pdf.reset();
   ui.reset();
   pdf.setDocument({ numPages: 5 } as any, 'my-paper.pdf');
+  // The store defaults to collapsed after reset(); Sidebar tests render
+  // the sidebar explicitly, so force-open it for the tests that need
+  // the full sidebar visible.
+  ui.setSidebarCollapsed(false);
 });
 
 describe('Sidebar', () => {

@@ -216,7 +216,11 @@
   <DragOverlay />
   {#if !doqReady}
     <div class="loading">Loading…</div>
-  {:else if pdf.doc}
+  {:else}
+    <!-- Sidebar lives in BOTH empty and reader states so the left-edge
+         affordance is consistent. In empty state the Sidebar shows its
+         "No PDF loaded" placeholder internally; in reader state it shows
+         the filename and thumbnails. -->
     {#if !ui.sidebarCollapsed}
       <Sidebar onSwapFile={() => fileInputForSwap.click()} />
       <!-- Backdrop only appears at narrow viewports (CSS-controlled) so the
@@ -237,10 +241,12 @@
         </svg>
       </button>
     {/if}
-    <PageView />
-    <ControlPill />
-  {:else}
-    <EmptyState onFileSelected={handleFile} />
+    {#if pdf.doc}
+      <PageView />
+      <ControlPill />
+    {:else}
+      <EmptyState onFileSelected={handleFile} />
+    {/if}
   {/if}
 
   <input

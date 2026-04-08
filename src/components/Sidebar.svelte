@@ -13,23 +13,29 @@
       <div class="logo"></div>
       <div class="name">PDF Dark</div>
     </div>
-    <div class="filename-row">
-      <span class="filename" title={pdf.filename}>{pdf.filename}</span>
-      <button class="swap-btn" onclick={onSwapFile} aria-label="Open a different PDF">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M16 3h5v5"></path>
-          <path d="M21 3l-7 7"></path>
-          <path d="M8 21H3v-5"></path>
-          <path d="M3 21l7-7"></path>
-        </svg>
-      </button>
-    </div>
+    {#if pdf.doc}
+      <div class="filename-row">
+        <span class="filename" title={pdf.filename}>{pdf.filename}</span>
+        <button class="swap-btn" onclick={onSwapFile} aria-label="Open a different PDF">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5"></path>
+            <path d="M21 3l-7 7"></path>
+            <path d="M8 21H3v-5"></path>
+            <path d="M3 21l7-7"></path>
+          </svg>
+        </button>
+      </div>
+    {/if}
   </header>
 
-  <div class="pages-label">Pages</div>
-  <div class="thumbs-scroll">
-    <ThumbnailList />
-  </div>
+  {#if pdf.doc}
+    <div class="pages-label">Pages</div>
+    <div class="thumbs-scroll">
+      <ThumbnailList />
+    </div>
+  {:else}
+    <div class="empty-placeholder">No PDF loaded</div>
+  {/if}
 
   <button class="collapse-btn" onclick={() => ui.toggleSidebar()} aria-label="Collapse sidebar">
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
@@ -122,6 +128,19 @@
     flex: 1;
     overflow-y: auto;
     padding: 0 8px 16px 8px;
+  }
+
+  .empty-placeholder {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--text-faint);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
   }
 
   .collapse-btn {

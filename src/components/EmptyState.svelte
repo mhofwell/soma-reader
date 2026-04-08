@@ -94,52 +94,89 @@
 
 <style>
   .empty {
-    height: 100%;
+    /* flex:1 is critical — .app is display:flex (horizontal), so without
+       this .empty shrinks to content width and gets left-aligned. With
+       flex:1 it fills the full available width and its own align/justify
+       centers the drop zone. */
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 18px;
-    padding: 32px;
+    gap: 28px;
+    padding: 48px;
+    position: relative;
+    /* Ambient haze — black → deep blue → deep purple radial gradient centered
+       on the hero. Gives the composition depth so the dashed box doesn't
+       float in a void. Subtle — the darks still dominate. */
+    background:
+      radial-gradient(
+        ellipse 1100px 750px at 50% 50%,
+        rgba(106, 169, 255, 0.09) 0%,
+        rgba(142, 115, 240, 0.07) 25%,
+        rgba(70, 40, 120, 0.05) 50%,
+        rgba(15, 15, 30, 0.02) 75%,
+        transparent 100%
+      );
   }
 
   .drop-zone {
-    width: 80%;
-    max-width: 460px;
+    width: 100%;
+    max-width: 560px;
     border: 2px dashed var(--border);
-    border-radius: 18px;
-    padding: 50px 36px 44px 36px;
+    border-radius: 22px;
+    padding: 80px 56px 72px 56px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    background: rgba(255, 255, 255, 0.015);
+    /* Glass-morphic background with a subtle inner gradient tint */
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.025) 0%,
+        rgba(255, 255, 255, 0.01) 100%
+      );
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     cursor: pointer;
     font-family: inherit;
     color: inherit;
-    transition: border-color 200ms ease, background 200ms ease;
+    transition: border-color 200ms ease, background 200ms ease, transform 200ms ease;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
   }
 
   .drop-zone:hover,
   .drop-zone:focus-visible {
     border-color: var(--accent);
-    background: rgba(106, 169, 255, 0.04);
+    background: rgba(106, 169, 255, 0.05);
     outline: none;
+    transform: translateY(-2px);
   }
 
   .typer-wrap {
-    height: 32px;
+    /* min-height (not fixed height) so the wrap can grow if the text
+       ever wraps, but doesn't jitter as characters type in. */
+    min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
   }
 
   .typer-text {
-    font-size: 26px;
+    /* display: inline-block gives the element a real box model so
+       background-clip:text paints across the full padded area including
+       the descender region. Plain inline spans clip the background to
+       the em-square of each glyph, which cuts off "g" / "y" / "p" tails. */
+    display: inline-block;
+    font-size: 36px;
     font-weight: 600;
-    letter-spacing: -0.025em;
-    line-height: 1;
-    background: linear-gradient(135deg, #f0f0f4 30%, var(--accent-2));
-    background-size: 360px 100%;
+    letter-spacing: -0.03em;
+    line-height: 1.4;
+    padding: 2px 0 10px 0;
+    background: linear-gradient(135deg, #f5f5fa 20%, var(--accent-2) 80%);
+    background-size: 540px 100%;
     background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
@@ -149,13 +186,13 @@
 
   .cursor {
     display: inline-block;
-    width: 2px;
-    height: 22px;
+    width: 3px;
+    height: 36px;
     background: var(--accent-2);
-    margin-left: 3px;
+    margin-left: 4px;
     vertical-align: middle;
-    transform: translateY(-2px);
-    border-radius: 1px;
+    transform: translateY(-5px);
+    border-radius: 1.5px;
     animation: blink 1.05s steps(1, end) infinite;
     transition: opacity 800ms ease 1500ms;
   }
@@ -175,16 +212,16 @@
   }
 
   .icon-moon {
-    margin-top: 18px;
-    width: 22px;
-    height: 22px;
+    margin-top: 28px;
+    width: 28px;
+    height: 28px;
     color: var(--accent);
-    opacity: 0.7;
+    opacity: 0.75;
   }
 
   .subtitle {
     color: var(--text-dim);
-    font-size: 13px;
+    font-size: 14px;
     text-align: center;
     letter-spacing: -0.005em;
   }
@@ -192,14 +229,14 @@
   .subtitle .meta {
     display: block;
     color: var(--text-faint);
-    font-size: 11px;
-    margin-top: 4px;
+    font-size: 12px;
+    margin-top: 6px;
   }
 
   .subtitle kbd {
     color: var(--text-dim);
     font-family: -apple-system, "SF Mono", monospace;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
   }
 </style>
