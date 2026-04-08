@@ -3,6 +3,7 @@
   import EmptyState from './components/EmptyState.svelte';
   import PageView from './components/PageView.svelte';
   import ControlPill from './components/ControlPill.svelte';
+  import Sidebar from './components/Sidebar.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
@@ -76,6 +77,15 @@
     if (file) await handleFile(file);
   }
 
+  let fileInputForSwap: HTMLInputElement;
+
+  function handleSwapFileChange(e: Event): void {
+    const target = e.target as HTMLInputElement;
+    const file = target.files?.[0];
+    if (file) void handleFile(file);
+    target.value = '';
+  }
+
   let pillHideTimer: ReturnType<typeof setTimeout> | null = null;
   const PILL_IDLE_MS = 2500;
 
@@ -102,11 +112,20 @@
   {#if !doqReady}
     <div class="loading">Loading…</div>
   {:else if pdf.doc}
+    <Sidebar onSwapFile={() => fileInputForSwap.click()} />
     <PageView />
     <ControlPill />
   {:else}
     <EmptyState onFileSelected={handleFile} />
   {/if}
+
+  <input
+    bind:this={fileInputForSwap}
+    type="file"
+    accept="application/pdf,.pdf"
+    onchange={handleSwapFileChange}
+    hidden
+  />
 </main>
 
 <style>
