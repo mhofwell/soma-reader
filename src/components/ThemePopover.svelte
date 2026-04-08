@@ -5,9 +5,7 @@
 
   let { triggerRef }: { triggerRef: HTMLButtonElement | null } = $props();
 
-  const themes = listThemes();
   let popoverEl: HTMLDivElement | null = $state(null);
-  let firstButtonEl: HTMLButtonElement | null = $state(null);
 
   function selectTheme(theme: Theme): void {
     ui.setActiveThemeId(theme.id);
@@ -26,7 +24,8 @@
     const target = e.target as HTMLElement;
     // Don't close when clicking the trigger button — its own onclick handles toggling
     if (popoverEl && !popoverEl.contains(target) && target !== triggerRef && !triggerRef?.contains(target)) {
-      ui.setThemePopoverOpen(false);
+      // Route through closePopover() so focus is restored to the trigger.
+      closePopover();
     }
   }
 
@@ -56,10 +55,14 @@
     }
   }
 
-  // Auto-focus the first item when the popover opens
+  // Auto-focus the FIRST theme button when the popover opens.
+  // We query the DOM directly instead of using `bind:this` inside the each
+  // loop — Svelte rebinds on every iteration of a keyed each block, leaving
+  // the bound variable pointing at the LAST item rendered, not the first.
   $effect(() => {
-    if (ui.themePopoverOpen && firstButtonEl) {
-      firstButtonEl.focus();
+    if (ui.themePopoverOpen && popoverEl) {
+      const first = popoverEl.querySelector<HTMLButtonElement>('.pop-theme');
+      first?.focus();
     }
   });
 </script>
@@ -76,15 +79,13 @@
   >
     <div class="popover-label" id="theme-popover-label">Theme</div>
     <div class="popover-grid" role="listbox" aria-labelledby="theme-popover-label">
-      {#each themes as theme, i (theme.id)}
+      {#each listThemes() as theme (theme.id)}
         <button
-          bind:this={firstButtonEl}
           class="pop-theme"
           class:selected={theme.id === ui.activeThemeId}
           role="option"
           aria-selected={theme.id === ui.activeThemeId}
           onclick={() => selectTheme(theme)}
-          tabindex={i === 0 ? 0 : 0}
         >
           <span
             class="swatch"

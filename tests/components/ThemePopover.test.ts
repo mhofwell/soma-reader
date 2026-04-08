@@ -29,4 +29,17 @@ describe('ThemePopover', () => {
     const options = screen.getAllByRole('option');
     expect(options.length).toBeGreaterThan(0);
   });
+
+  it('auto-focuses the FIRST theme when opened (regression for bind:this-in-each bug)', async () => {
+    ui.setThemePopoverOpen(true);
+    render(ThemePopover, { props: { triggerRef: null } });
+    // Let the auto-focus $effect run
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const options = screen.getAllByRole('option') as HTMLButtonElement[];
+    expect(options.length).toBeGreaterThan(1);
+    // The first option in DOM order should be the focused element,
+    // not the last (which was the pre-fix bug from bind:this inside the each loop).
+    expect(document.activeElement).toBe(options[0]);
+    expect(document.activeElement).not.toBe(options[options.length - 1]);
+  });
 });
