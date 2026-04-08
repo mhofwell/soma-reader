@@ -19,11 +19,18 @@ class PdfStore {
 
   setDocument(doc: PDFDocumentProxy, filename: string): void {
     // Release the previous document's worker-side resources. doc.destroy()
-    // returns a Promise but we don't need to await from this sync method —
-    // fire-and-forget is fine since we're replacing the reference immediately.
+    // returns a Promise that can REJECT with a cancellation error if any
+    // page/thumbnail renders were in flight when destroy() ran — pdf.js
+    // cancels those tasks as part of teardown. Swallow the rejection so
+    // it doesn't surface as an unhandledrejection in the browser/tests.
     // Optional chaining tolerates test doubles that don't implement destroy().
     if (this.doc !== null && this.doc !== doc) {
-      void this.doc.destroy?.();
+      const destroyResult = this.doc.destroy?.();
+      if (destroyResult && typeof destroyResult.catch === 'function') {
+        destroyResult.catch(() => {
+          /* ignore cancellation and teardown errors from a destroyed proxy */
+        });
+      }
     }
     this.doc = doc;
     this.numPages = doc.numPages;
@@ -53,9 +60,16 @@ class PdfStore {
 
   reset(): void {
     // Release worker-side resources before dropping the reference.
-    // Optional chaining tolerates test doubles that don't implement destroy().
+    // See setDocument() above for why we attach a catch() — destroy() can
+    // reject when in-flight render tasks get cancelled, and we don't want
+    // that rejection leaking as an unhandledrejection.
     if (this.doc !== null) {
-      void this.doc.destroy?.();
+      const destroyResult = this.doc.destroy?.();
+      if (destroyResult && typeof destroyResult.catch === 'function') {
+        destroyResult.catch(() => {
+          /* ignore cancellation and teardown errors from a destroyed proxy */
+        });
+      }
     }
     this.doc = null;
     this.numPages = 0;

@@ -2,9 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
 import ErrorOverlay from '../../src/components/ErrorOverlay.svelte';
 import { pdf } from '../../src/lib/stores/pdf.svelte';
+import { ui } from '../../src/lib/stores/ui.svelte';
 
 beforeEach(() => {
   pdf.reset();
+  ui.reset();
 });
 
 describe('ErrorOverlay', () => {
@@ -41,5 +43,21 @@ describe('ErrorOverlay', () => {
     expect(pdf.loadingState).toBe('idle');
     await fireEvent.keyDown(window, { key: 'Escape' });
     expect(pdf.loadingState).toBe('idle');
+  });
+
+  it('Escape does NOT reset the document while the theme popover is open', async () => {
+    // Regression for: both ErrorOverlay and ThemePopover have window-level
+    // Escape handlers. If both were active simultaneously, pressing Esc to
+    // dismiss the popover would ALSO destructively reset the document.
+    pdf.setError('load failed');
+    ui.setThemePopoverOpen(true);
+    render(ErrorOverlay);
+
+    expect(pdf.loadingState).toBe('error');
+    await fireEvent.keyDown(window, { key: 'Escape' });
+
+    // The error state should still be 'error' — only the popover (not
+    // mounted in this test) would have closed. The document stays.
+    expect(pdf.loadingState).toBe('error');
   });
 });

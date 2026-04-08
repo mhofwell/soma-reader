@@ -101,4 +101,56 @@ describe('pdf store', () => {
     expect(() => pdf.reset()).not.toThrow();
     expect(pdf.doc).toBeNull();
   });
+
+  it('setDocument swallows rejections from destroy() (pdf.js cancellation)', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    // Simulate the real pdf.js behavior: destroy() rejects because of
+    // in-flight render task cancellation. Without the .catch() in the
+    // store, this would surface as an unhandledrejection.
+    const cancellationError = new Error('Rendering cancelled');
+    const oldDoc = {
+      numPages: 5,
+      destroy: vi.fn().mockRejectedValue(cancellationError)
+    } as any;
+    const newDoc = { numPages: 10, destroy: vi.fn().mockResolvedValue(undefined) } as any;
+
+    let unhandled: unknown = null;
+    const handler = (e: PromiseRejectionEvent): void => {
+      unhandled = e.reason;
+    };
+    window.addEventListener('unhandledrejection', handler);
+
+    pdf.setDocument(oldDoc, 'old.pdf');
+    pdf.setDocument(newDoc, 'new.pdf');
+
+    // Wait a tick for the rejected destroy() microtask to settle
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    window.removeEventListener('unhandledrejection', handler);
+    expect(unhandled).toBeNull();
+    expect(oldDoc.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('reset swallows rejections from destroy() (pdf.js cancellation)', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    const cancellationError = new Error('Rendering cancelled');
+    const doc = {
+      numPages: 5,
+      destroy: vi.fn().mockRejectedValue(cancellationError)
+    } as any;
+
+    pdf.setDocument(doc, 'a.pdf');
+
+    let unhandled: unknown = null;
+    const handler = (e: PromiseRejectionEvent): void => {
+      unhandled = e.reason;
+    };
+    window.addEventListener('unhandledrejection', handler);
+
+    pdf.reset();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    window.removeEventListener('unhandledrejection', handler);
+    expect(unhandled).toBeNull();
+  });
 });

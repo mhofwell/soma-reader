@@ -1,5 +1,6 @@
 <script lang="ts">
   import { pdf } from '$lib/stores/pdf.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
 
   function handleReset(): void {
     pdf.reset();
@@ -7,7 +8,17 @@
 
   function handleKey(e: KeyboardEvent): void {
     // Escape dismisses the error overlay and returns to the empty state.
-    if (e.key === 'Escape' && pdf.loadingState === 'error') {
+    //
+    // Gate: only run this if the theme popover isn't also open. If both
+    // overlays exist simultaneously (rare but real — e.g., load error
+    // while the popover was open), pressing Esc would fire BOTH window
+    // handlers: ThemePopover would close itself AND this would reset the
+    // document. The user probably meant to just dismiss the popover.
+    if (
+      e.key === 'Escape' &&
+      pdf.loadingState === 'error' &&
+      !ui.themePopoverOpen
+    ) {
       e.preventDefault();
       pdf.reset();
     }
