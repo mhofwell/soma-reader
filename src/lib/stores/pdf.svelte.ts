@@ -18,6 +18,13 @@ class PdfStore {
   }
 
   setDocument(doc: PDFDocumentProxy, filename: string): void {
+    // Release the previous document's worker-side resources. doc.destroy()
+    // returns a Promise but we don't need to await from this sync method —
+    // fire-and-forget is fine since we're replacing the reference immediately.
+    // Optional chaining tolerates test doubles that don't implement destroy().
+    if (this.doc !== null && this.doc !== doc) {
+      void this.doc.destroy?.();
+    }
     this.doc = doc;
     this.numPages = doc.numPages;
     this.currentPage = 1;
@@ -45,6 +52,11 @@ class PdfStore {
   }
 
   reset(): void {
+    // Release worker-side resources before dropping the reference.
+    // Optional chaining tolerates test doubles that don't implement destroy().
+    if (this.doc !== null) {
+      void this.doc.destroy?.();
+    }
     this.doc = null;
     this.numPages = 0;
     this.currentPage = 1;

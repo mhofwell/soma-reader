@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 beforeEach(async () => {
   // Reset module state between tests
@@ -57,5 +57,48 @@ describe('pdf store', () => {
     pdf.setError('boom');
     expect(pdf.loadingState).toBe('error');
     expect(pdf.errorMessage).toBe('boom');
+  });
+
+  it('setDocument calls destroy() on the previous doc', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    const destroyOld = vi.fn().mockResolvedValue(undefined);
+    const destroyNew = vi.fn().mockResolvedValue(undefined);
+    const oldDoc = { numPages: 10, destroy: destroyOld } as any;
+    const newDoc = { numPages: 20, destroy: destroyNew } as any;
+
+    pdf.setDocument(oldDoc, 'old.pdf');
+    expect(destroyOld).not.toHaveBeenCalled();
+
+    pdf.setDocument(newDoc, 'new.pdf');
+    expect(destroyOld).toHaveBeenCalledOnce();
+    expect(destroyNew).not.toHaveBeenCalled();
+    expect(pdf.doc).toBe(newDoc);
+  });
+
+  it('setDocument does NOT destroy the same doc passed twice', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    const doc = { numPages: 10, destroy } as any;
+
+    pdf.setDocument(doc, 'a.pdf');
+    pdf.setDocument(doc, 'a.pdf');
+    expect(destroy).not.toHaveBeenCalled();
+  });
+
+  it('reset calls destroy() on the current doc', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    const destroy = vi.fn().mockResolvedValue(undefined);
+    pdf.setDocument({ numPages: 5, destroy } as any, 'a.pdf');
+    expect(destroy).not.toHaveBeenCalled();
+    pdf.reset();
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(pdf.doc).toBeNull();
+  });
+
+  it('reset is a no-op for destroy when idle', async () => {
+    const { pdf } = await import('../../src/lib/stores/pdf.svelte');
+    // Fresh state — no doc set, reset should not throw
+    expect(() => pdf.reset()).not.toThrow();
+    expect(pdf.doc).toBeNull();
   });
 });
