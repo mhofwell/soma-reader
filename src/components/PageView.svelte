@@ -8,12 +8,42 @@
   let currentRenderToken = 0;
   let renderErrorMessage = $state<string | null>(null);
 
+  // Reactive devicePixelRatio — updated whenever the user moves the window
+  // to a different-DPR monitor or changes browser zoom. The render effect
+  // depends on this, so DPR changes retrigger a fresh high-DPI render.
+  let currentDpr = $state(
+    typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  );
+
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+
+    function updateDpr(): void {
+      const next = window.devicePixelRatio || 1;
+      if (next !== currentDpr) currentDpr = next;
+    }
+
+    // Browser resize fires on monitor-change and browser-zoom changes on
+    // most OSes. matchMedia against the current DPR catches the edge cases
+    // where resize doesn't (e.g., pure OS-level scaling change).
+    window.addEventListener('resize', updateDpr);
+    const mq = window.matchMedia(`(resolution: ${currentDpr}dppx)`);
+    const mqListener = (): void => updateDpr();
+    mq.addEventListener('change', mqListener);
+
+    return () => {
+      window.removeEventListener('resize', updateDpr);
+      mq.removeEventListener('change', mqListener);
+    };
+  });
+
   $effect(() => {
     // Reactivity: re-run when these change
     const doc = pdf.doc;
     const page = pdf.currentPage;
     const scale = ui.effectiveScale;
     const themeId = ui.activeThemeId;
+    const dpr = currentDpr;
 
     if (!doc) return;
 
@@ -36,7 +66,6 @@
         if (myToken !== currentRenderToken) return; // newer render started
 
         const canvas = document.createElement('canvas');
-        const dpr = window.devicePixelRatio || 1;
         await renderPageToCanvas(pdfPage, canvas, {
           scale,
           dpr,
@@ -63,14 +92,13 @@
   });
 </script>
 
-<div
-  class="page-view"
-  role="region"
-  aria-label="PDF page viewer"
-  aria-live="polite"
-  aria-atomic="true"
->
-  <div class="sr-only">Page {pdf.currentPage} of {pdf.numPages}</div>
+<div class="page-view" role="region" aria-label="PDF page viewer">
+  <!-- aria-live is scoped to the status span only so that canvas replaceChildren
+       calls don't trigger screen reader announcements on every page swap.
+       Only the "Page X of Y" text content change triggers a polite announcement. -->
+  <div class="sr-only" aria-live="polite" aria-atomic="true">
+    Page {pdf.currentPage} of {pdf.numPages}
+  </div>
   {#if renderErrorMessage}
     <div class="render-error" role="alert">
       <p>{renderErrorMessage}</p>
