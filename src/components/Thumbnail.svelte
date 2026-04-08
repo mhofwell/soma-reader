@@ -9,13 +9,18 @@
   let container: HTMLButtonElement;
   let canvasHost: HTMLDivElement;
   let renderedCanvas = $state<HTMLCanvasElement | null>(null);
-  let rendered = $state(false);
+
+  // Render token — protects against race conditions when the theme changes
+  // rapidly. Each render() call captures the current token value; if a newer
+  // render has started by the time the async work completes, the stale one
+  // bails out instead of committing its canvas.
+  let currentRenderToken = 0;
 
   onMount(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting && !rendered) {
+          if (entry.isIntersecting && renderedCanvas === null) {
             void render();
           }
         }
@@ -26,17 +31,17 @@
     return () => observer.disconnect();
   });
 
-  // Re-render the thumbnail when the active theme changes
+  // Re-render when the active theme changes (so thumbs match the current theme)
   $effect(() => {
     void ui.activeThemeId;
-    if (rendered && pdf.doc) {
-      rendered = false;
+    // Invalidate any in-flight render by bumping the token, then start fresh.
+    if (renderedCanvas !== null && pdf.doc) {
       void render();
     }
   });
 
-  // When a fresh canvas is rendered, swap it into the host via direct DOM
-  // (no innerHTML — eliminates any XSS surface)
+  // When a fresh canvas becomes available, swap it into the pure-JS host.
+  // The host has no Svelte-managed children — only our imperative writes.
   $effect(() => {
     if (renderedCanvas && canvasHost) {
       canvasHost.replaceChildren(renderedCanvas);
@@ -45,13 +50,16 @@
 
   async function render(): Promise<void> {
     if (!pdf.doc) return;
+    const myToken = ++currentRenderToken;
     try {
       const page = await pdf.doc.getPage(pageNumber);
+      if (myToken !== currentRenderToken) return;
       const c = document.createElement('canvas');
       await renderThumbnail(page, c);
+      if (myToken !== currentRenderToken) return;
       renderedCanvas = c;
-      rendered = true;
     } catch (err) {
+      if (myToken !== currentRenderToken) return;
       console.error(`Failed to render thumb ${pageNumber}`, err);
     }
   }
@@ -69,11 +77,9 @@
   aria-label={`Go to page ${pageNumber}`}
   aria-current={pdf.currentPage === pageNumber ? 'page' : undefined}
 >
-  <div class="canvas-host" bind:this={canvasHost}>
-    {#if !renderedCanvas}
-      <div class="placeholder"></div>
-    {/if}
-  </div>
+  <!-- canvas-host is purely JS-managed: Svelte owns nothing inside it.
+       The placeholder appearance comes from CSS :empty, not a nested div. -->
+  <div class="canvas-host" bind:this={canvasHost}></div>
   <div class="num">{pageNumber}</div>
 </button>
 
@@ -105,17 +111,17 @@
     height: 100%;
   }
 
+  /* Placeholder: no child element required. When the host has no children
+     (pre-render or on render failure) the background shows through. */
+  .canvas-host:empty {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 2px;
+  }
+
   .canvas-host :global(canvas) {
     display: block;
     width: 100%;
     height: auto;
-  }
-
-  .placeholder {
-    background: rgba(255, 255, 255, 0.02);
-    width: 100%;
-    height: 100%;
-    border-radius: 2px;
   }
 
   .num {
