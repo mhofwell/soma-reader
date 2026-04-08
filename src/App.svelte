@@ -6,6 +6,7 @@
   import Sidebar from './components/Sidebar.svelte';
   import LoadingOverlay from './components/LoadingOverlay.svelte';
   import ErrorOverlay from './components/ErrorOverlay.svelte';
+  import DragOverlay from './components/DragOverlay.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
@@ -158,6 +159,7 @@
 <main class="app">
   <LoadingOverlay />
   <ErrorOverlay />
+  <DragOverlay />
   {#if !doqReady}
     <div class="loading">Loading…</div>
   {:else if pdf.doc}
