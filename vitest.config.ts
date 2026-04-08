@@ -8,7 +8,11 @@ export default defineConfig({
     alias: {
       $lib: resolve(__dirname, 'src/lib'),
       $components: resolve(__dirname, 'src/components')
-    }
+    },
+    // Use Svelte's browser entry point rather than its SSR entry. Otherwise
+    // component mount() fails with 'server_context_required' because the
+    // server build of svelte/index.js throws on mount calls outside SSR.
+    conditions: ['browser', 'svelte']
   },
   test: {
     environment: 'happy-dom',
