@@ -1,13 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-// PDF.js exports specific error classes — use instanceof rather than regex
-// matching against err.message, which is brittle across versions and locales.
-import {
-  PasswordException,
-  InvalidPDFException,
-  MissingPDFException,
-  UnexpectedResponseException
-} from 'pdfjs-dist';
+// PDF.js sets err.name to the underlying exception class name (e.g.
+// 'PasswordException', 'InvalidPDFException'). We classify by err.name rather
+// than message regex (brittle across locales) or by importing the classes
+// (PasswordException isn't part of pdfjs-dist's public exports as of v4.7).
 
 // Set up the PDF.js worker. Vite will resolve this URL at build time.
 // In tests, this is harmless because we mock pdfjs-dist entirely.
@@ -51,19 +47,19 @@ export async function loadPdfFromBuffer(buffer: ArrayBuffer): Promise<PDFDocumen
     const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
     return doc;
   } catch (err) {
-    if (err instanceof PasswordException) {
-      throw new PdfLoadError('This PDF is password-protected.', 'encrypted');
-    }
-    if (err instanceof InvalidPDFException) {
-      throw new PdfLoadError("Couldn't read this PDF — it might be damaged.", 'corrupt');
-    }
-    if (err instanceof MissingPDFException) {
-      throw new PdfLoadError('PDF data is missing.', 'missing');
-    }
-    if (err instanceof UnexpectedResponseException) {
-      throw new PdfLoadError('Network error while loading the PDF.', 'network');
-    }
+    const name = err instanceof Error ? err.name : '';
     const msg = err instanceof Error ? err.message : String(err);
-    throw new PdfLoadError(msg, 'unknown');
+    switch (name) {
+      case 'PasswordException':
+        throw new PdfLoadError('This PDF is password-protected.', 'encrypted');
+      case 'InvalidPDFException':
+        throw new PdfLoadError("Couldn't read this PDF — it might be damaged.", 'corrupt');
+      case 'MissingPDFException':
+        throw new PdfLoadError('PDF data is missing.', 'missing');
+      case 'UnexpectedResponseException':
+        throw new PdfLoadError('Network error while loading the PDF.', 'network');
+      default:
+        throw new PdfLoadError(msg, 'unknown');
+    }
   }
 }
