@@ -1,29 +1,110 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import EmptyState from './components/EmptyState.svelte';
+  import PageView from './components/PageView.svelte';
+  import { pdf } from '$lib/stores/pdf.svelte';
+  import { ui } from '$lib/stores/ui.svelte';
+  import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
+  import { loadPdfFromBuffer, PdfLoadError } from '$lib/pdf/loader';
+
+  let doqReady = $state(false);
+
+  onMount(async () => {
+    try {
+      await initDoq();
+      // Theme fallback chain: stored ID → default → first available.
+      // doq.enable() throws if no theme has been set, so we MUST resolve to
+      // an actual theme before any rendering occurs.
+      const theme =
+        findThemeById(ui.activeThemeId) ??
+        findThemeById('Firefox/Dark') ??
+        listThemes()[0] ??
+        null;
+      if (theme) {
+        setActiveTheme(theme);
+      }
+      // If theme is null, doq has zero schemes — light rendering only.
+    } catch (err) {
+      console.error('doq init failed', err);
+      // Fall back to non-dark rendering — the reader still works.
+    } finally {
+      doqReady = true;
+    }
+  });
+
+  async function handleFile(file: File): Promise<void> {
+    if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      pdf.setError(`That's not a PDF: ${file.name}`);
+      return;
+    }
+    try {
+      // Distinct loading phases — each await yields, letting the LoadingOverlay
+      // observe the state transition. Without splitting these the 'reading-file'
+      // state would never be visible (set + immediately overwritten).
+      pdf.setLoading('reading-file');
+      const buffer = await file.arrayBuffer();
+      pdf.setLoading('parsing');
+      const doc = await loadPdfFromBuffer(buffer);
+      pdf.setDocument(doc, file.name);
+    } catch (err) {
+      if (err instanceof PdfLoadError) {
+        pdf.setError(err.message);
+      } else {
+        pdf.setError(err instanceof Error ? err.message : 'Unknown error');
+      }
+    }
+  }
+
+  function handleDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    ui.setDragOver(true);
+  }
+
+  function handleDragLeave(e: DragEvent): void {
+    // Only clear when leaving the window entirely
+    if (e.relatedTarget === null) {
+      ui.setDragOver(false);
+    }
+  }
+
+  async function handleDrop(e: DragEvent): Promise<void> {
+    e.preventDefault();
+    ui.setDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) await handleFile(file);
+  }
 </script>
 
-<main>
-  <h1>PDF Dark</h1>
-  <p>Scaffolding in progress.</p>
+<svelte:window
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+/>
+
+<main class="app">
+  {#if !doqReady}
+    <div class="loading">Loading…</div>
+  {:else if pdf.doc}
+    <PageView />
+  {:else}
+    <EmptyState onFileSelected={handleFile} />
+  {/if}
 </main>
 
 <style>
-  main {
+  .app {
+    height: 100vh;
     display: flex;
-    flex-direction: column;
+    background: var(--bg);
+  }
+
+  .loading {
+    flex: 1;
+    display: flex;
     align-items: center;
     justify-content: center;
-    height: 100%;
-    color: var(--text);
-  }
-  h1 {
-    font-size: 24px;
-    background: linear-gradient(135deg, #f0f0f4 30%, #b894ff);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-  p {
     color: var(--text-dim);
-    margin-top: 8px;
+    font-size: 13px;
   }
 </style>
