@@ -16,11 +16,21 @@
   // bails out instead of committing its canvas.
   let currentRenderToken = 0;
 
+  // Non-reactive flag (plain `let`, NOT $state) tracking whether render() has
+  // ever been dispatched — either in-flight or completed. Used by the theme
+  // effect to decide whether to start a fresh render on theme change.
+  //
+  // CRITICAL: this MUST be non-reactive. If the theme effect read a reactive
+  // signal like `renderedCanvas` for this check, every render() commit would
+  // re-fire the effect, which would call render() again, committing another
+  // canvas, re-firing the effect... — infinite loop.
+  let renderDispatched = false;
+
   onMount(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (entry.isIntersecting && renderedCanvas === null) {
+          if (entry.isIntersecting && !renderDispatched) {
             void render();
           }
         }
@@ -31,11 +41,13 @@
     return () => observer.disconnect();
   });
 
-  // Re-render when the active theme changes (so thumbs match the current theme)
+  // Re-render when the active theme changes (so thumbs match the current
+  // theme). Runs only if a render has already been dispatched (in-flight OR
+  // completed) — otherwise the initial IntersectionObserver-triggered render
+  // will pick up the current theme when it starts.
   $effect(() => {
     void ui.activeThemeId;
-    // Invalidate any in-flight render by bumping the token, then start fresh.
-    if (renderedCanvas !== null && pdf.doc) {
+    if (renderDispatched && pdf.doc) {
       void render();
     }
   });
@@ -50,6 +62,11 @@
 
   async function render(): Promise<void> {
     if (!pdf.doc) return;
+    // Mark dispatched BEFORE any await, so a theme change that arrives while
+    // this render is in flight will see renderDispatched=true and kick off
+    // a replacement render (bumping currentRenderToken, which causes this
+    // render to bail at its next checkpoint).
+    renderDispatched = true;
     const myToken = ++currentRenderToken;
     try {
       const page = await pdf.doc.getPage(pageNumber);

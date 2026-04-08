@@ -87,16 +87,41 @@ describe('Thumbnail', () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
 
     // Switch theme mid-render — the in-flight render should be invalidated
+    // AND a replacement render dispatched, even though renderedCanvas is
+    // still null at this moment. This is the exact case Codex flagged.
     ui.setActiveThemeId('Nord/Polar Night');
 
     // Wait well past the slow render's completion time for both to settle
     await new Promise((resolve) => setTimeout(resolve, 150));
 
-    // The host should contain a canvas from the SECOND render (Nord theme),
-    // not the first (Firefox). The first render's canvas should have been
-    // discarded via the render-token check.
+    // The committed canvas's themeAtStart should be the NEW theme, meaning
+    // a second render was dispatched by the theme change effect and that
+    // replacement render is the one that won.
     const canvas = container.querySelector<HTMLCanvasElement>('.canvas-host canvas');
     expect(canvas).toBeTruthy();
     expect(canvas!.dataset.themeAtStart).toBe('Nord/Polar Night');
+  });
+
+  it('theme-change effect does not create an infinite render loop', async () => {
+    // If the theme effect reactively tracks renderedCanvas, committing a
+    // canvas re-fires the effect, which calls render() again, which commits
+    // another canvas, and so on. A bounded test should see at most 2 mock
+    // calls for this scenario: the initial IntersectionObserver-triggered
+    // render, and the one dispatched by the theme change effect.
+    renderThumbnailMock.mockImplementation(
+      makeSlowRender(20, () => ui.activeThemeId)
+    );
+
+    ui.setActiveThemeId('Firefox/Dark');
+    render(Thumbnail, { props: { pageNumber: 1 } });
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    ui.setActiveThemeId('Nord/Polar Night');
+    // Wait long enough for several potential loop iterations to occur
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // With the fix: exactly 2 calls (initial + theme-change).
+    // Without the fix: many more (infinite loop bounded by the wait window).
+    expect(renderThumbnailMock.mock.calls.length).toBeLessThanOrEqual(2);
   });
 });

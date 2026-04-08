@@ -24,8 +24,15 @@
     const target = e.target as HTMLElement;
     // Don't close when clicking the trigger button — its own onclick handles toggling
     if (popoverEl && !popoverEl.contains(target) && target !== triggerRef && !triggerRef?.contains(target)) {
-      // Route through closePopover() so focus is restored to the trigger.
-      closePopover();
+      // Pointer-driven dismissal — close the popover WITHOUT forcing focus
+      // back to the trigger button. The user clicked on another element and
+      // expects that element to receive focus (e.g., clicking the next-page
+      // button should leave the next-page button focused for keyboard follow-up).
+      //
+      // By contrast, Esc dismissal goes through closePopover() and DOES
+      // restore focus to the trigger, because keyboard users dismissing with
+      // Esc expect to continue interacting via the keyboard.
+      ui.setThemePopoverOpen(false);
     }
   }
 
