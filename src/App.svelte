@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import EmptyState from './components/EmptyState.svelte';
   import PageView from './components/PageView.svelte';
+  import ControlPill from './components/ControlPill.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
@@ -87,6 +88,7 @@
     <div class="loading">Loading…</div>
   {:else if pdf.doc}
     <PageView />
+    <ControlPill />
   {:else}
     <EmptyState onFileSelected={handleFile} />
   {/if}
