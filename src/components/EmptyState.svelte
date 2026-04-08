@@ -45,12 +45,10 @@
     target.value = ''; // allow re-selecting the same file
   }
 
-  function handleKey(e: KeyboardEvent): void {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      handleClick();
-    }
-  }
+  // Note: we intentionally do NOT add a keydown handler here. Native <button>
+  // elements already activate on Enter and Space — adding our own handler
+  // would cause the click action to fire twice (once from the keydown
+  // handler, once from the browser-synthesized click event).
 </script>
 
 <div class="empty">
@@ -58,7 +56,6 @@
     type="button"
     class="drop-zone"
     onclick={handleClick}
-    onkeydown={handleKey}
     aria-label="Open a PDF file"
   >
     <div class="typer-wrap">
@@ -164,6 +161,11 @@
   }
 
   .cursor.gone {
+    /* Stop the blink animation so the opacity transition can actually run.
+       Without `animation: none`, the keyframes keep rewriting `opacity` on
+       every frame and the transition never wins — the cursor just keeps
+       blinking instead of fading out. */
+    animation: none;
     opacity: 0;
   }
 
