@@ -66,4 +66,28 @@ describe('doq-bridge', () => {
     expect(theme).not.toBeNull();
     expect(theme!.id).toBe('Firefox/Dark');
   });
+
+  it('resolveActiveTheme handles empty-string id gracefully (fallback chain)', async () => {
+    const { initDoq, resolveActiveTheme } = await import('../../src/lib/doq-bridge');
+    await initDoq();
+    const theme = resolveActiveTheme('');
+    expect(theme).not.toBeNull();
+    expect(theme!.id).toBe('Firefox/Dark');
+  });
+
+  it('findThemeById is case-sensitive — mismatched case returns null', async () => {
+    const { initDoq, findThemeById } = await import('../../src/lib/doq-bridge');
+    await initDoq();
+    expect(findThemeById('nord/polar night')).toBeNull();
+    expect(findThemeById('Nord/Polar Night')).not.toBeNull();
+  });
+
+  it('listThemes returns a stable array (can be called repeatedly in templates)', async () => {
+    const { initDoq, listThemes } = await import('../../src/lib/doq-bridge');
+    await initDoq();
+    const a = listThemes();
+    const b = listThemes();
+    expect(a).toBe(b); // same reference
+    expect(a.length).toBeGreaterThan(0);
+  });
 });
