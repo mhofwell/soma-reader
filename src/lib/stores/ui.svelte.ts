@@ -2,8 +2,16 @@ import { readPersisted, writePersisted } from '../persist';
 import type { ThemeId } from '../../types';
 
 export const BASE_SCALE = 1.5; // 100% = scale 1.5 (Adobe-style "actual size")
-export const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+// `as const` freezes the array at the type level (readonly) so external code
+// can't accidentally mutate it and break the derived canZoomIn/canZoomOut.
+export const ZOOM_LEVELS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3] as const;
 const DEFAULT_ZOOM_INDEX = ZOOM_LEVELS.indexOf(1);
+// Runtime assertion: if a future change removes 1.0 from ZOOM_LEVELS,
+// indexOf returns -1 and everything downstream silently breaks
+// (effectiveScale becomes NaN). Fail loud at module load instead.
+if (DEFAULT_ZOOM_INDEX < 0) {
+  throw new Error('ZOOM_LEVELS must contain 1.0 for the 100% default to work');
+}
 const DEFAULT_THEME_ID: ThemeId = 'Firefox/Dark';
 
 class UiStore {
