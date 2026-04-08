@@ -90,6 +90,24 @@
   }
 
   function handleGlobalKey(e: KeyboardEvent): void {
+    // Bail out if focus is inside an input, textarea, or contenteditable —
+    // the user is typing and shouldn't have global shortcuts hijacked.
+    const active = document.activeElement as HTMLElement | null;
+    if (
+      active instanceof HTMLInputElement ||
+      active instanceof HTMLTextAreaElement ||
+      (active?.isContentEditable ?? false)
+    ) {
+      return;
+    }
+
+    // Bail out if the theme popover is open — its own key handlers own
+    // Tab/Esc, and page navigation / zoom shortcuts shouldn't fire while
+    // the user is navigating the popover with the keyboard.
+    if (ui.themePopoverOpen) {
+      return;
+    }
+
     // Open file picker (empty state or swap)
     if (matchShortcut(e, { key: 'o', meta: true })) {
       e.preventDefault();
@@ -104,12 +122,15 @@
       return;
     }
 
-    // Page navigation
+    // Page navigation. preventDefault so the browser's native horizontal
+    // scroll on .page-view doesn't fight page navigation at high zoom.
     if (e.key === 'ArrowRight' && pdf.doc) {
+      e.preventDefault();
       pdf.nextPage();
       return;
     }
     if (e.key === 'ArrowLeft' && pdf.doc) {
+      e.preventDefault();
       pdf.prevPage();
       return;
     }
