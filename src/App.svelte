@@ -112,7 +112,26 @@
   {#if !doqReady}
     <div class="loading">Loading…</div>
   {:else if pdf.doc}
-    <Sidebar onSwapFile={() => fileInputForSwap.click()} />
+    {#if !ui.sidebarCollapsed}
+      <Sidebar onSwapFile={() => fileInputForSwap.click()} />
+      <!-- Backdrop only appears at narrow viewports (CSS-controlled) so the
+           sidebar drawer can be dismissed by tapping outside on mobile. -->
+      <button
+        class="sidebar-backdrop"
+        aria-label="Close sidebar"
+        onclick={() => ui.setSidebarCollapsed(true)}
+      ></button>
+    {:else}
+      <button
+        class="expand-sidebar-btn"
+        onclick={() => ui.setSidebarCollapsed(false)}
+        aria-label="Show sidebar"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </button>
+    {/if}
     <PageView />
     <ControlPill />
   {:else}
@@ -142,5 +161,48 @@
     justify-content: center;
     color: var(--text-dim);
     font-size: 13px;
+  }
+
+  :global(.expand-sidebar-btn) {
+    position: fixed;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 36px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 6px 6px 0;
+    color: var(--text-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 90;
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  :global(.expand-sidebar-btn):hover {
+    background: var(--panel-2);
+    color: var(--text);
+  }
+
+  /* Backdrop for the sidebar drawer at narrow viewports. Hidden on desktop. */
+  :global(.sidebar-backdrop) {
+    display: none;
+  }
+  @media (max-width: 720px) {
+    :global(.sidebar-backdrop) {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      z-index: 140;
+      border: none;
+      cursor: pointer;
+    }
   }
 </style>
