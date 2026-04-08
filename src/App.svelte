@@ -117,10 +117,15 @@
       return;
     }
 
-    // Bail out if the theme popover is open — its own key handlers own
-    // Tab/Esc, and page navigation / zoom shortcuts shouldn't fire while
-    // the user is navigating the popover with the keyboard.
-    if (ui.themePopoverOpen) {
+    // Bail out if the theme popover is CURRENTLY mounted and open. The
+    // popover only exists while a PDF is loaded (inside ControlPill, which
+    // is only rendered when pdf.doc !== null). ControlPill clears the
+    // themePopoverOpen flag onDestroy, but we ALSO check pdf.doc here as
+    // belt-and-suspenders — without the pdf.doc check, a stale
+    // themePopoverOpen flag (theoretically impossible after the onDestroy
+    // fix, but defending in depth) would lock out all shortcuts in the
+    // empty state.
+    if (ui.themePopoverOpen && pdf.doc !== null) {
       return;
     }
 

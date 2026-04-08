@@ -42,4 +42,18 @@ describe('ControlPill', () => {
     await fireEvent.click(themeBtn);
     expect(ui.themePopoverOpen).toBe(true);
   });
+
+  it('unmounting ControlPill clears themePopoverOpen flag (stale state fix)', async () => {
+    // Regression for Codex Round 4: if the popover is open and the pill
+    // unmounts (e.g., pdf.reset() from an error overlay), the flag must
+    // not persist — otherwise global keyboard shortcuts stay disabled
+    // in the empty state because the App.svelte guard checks the flag.
+    const { unmount } = render(ControlPill);
+    const themeBtn = screen.getByRole('button', { name: /theme picker/i });
+    await fireEvent.click(themeBtn);
+    expect(ui.themePopoverOpen).toBe(true);
+
+    unmount();
+    expect(ui.themePopoverOpen).toBe(false);
+  });
 });

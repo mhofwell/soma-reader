@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import ThemePopover from './ThemePopover.svelte';
@@ -9,6 +10,17 @@
   function toggleThemePopover(): void {
     ui.setThemePopoverOpen(!ui.themePopoverOpen);
   }
+
+  // Clear the theme-popover flag when the pill unmounts. ControlPill owns
+  // the ThemePopover lifecycle, so if the pill goes away (e.g., pdf.reset()
+  // returns the app to the empty state while the popover was open), the
+  // flag should NOT persist. Otherwise the global keyboard guard in
+  // App.svelte keeps swallowing shortcuts even though no popover exists,
+  // and the next loaded document would see themePopoverOpen=true and
+  // reopen the popover spuriously.
+  onDestroy(() => {
+    ui.setThemePopoverOpen(false);
+  });
 </script>
 
 {#if ui.pillVisible}
