@@ -2,6 +2,7 @@
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import ThemePopover from './ThemePopover.svelte';
+  import { fade } from 'svelte/transition';
 
   let themeBtnRef: HTMLButtonElement | null = $state(null);
 
@@ -11,7 +12,7 @@
 </script>
 
 {#if ui.pillVisible}
-  <div class="pill">
+  <div class="pill" transition:fade={{ duration: 200 }}>
     <button
       class="pill-btn"
       onclick={() => pdf.prevPage()}

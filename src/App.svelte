@@ -75,12 +75,27 @@
     const file = e.dataTransfer?.files?.[0];
     if (file) await handleFile(file);
   }
+
+  let pillHideTimer: ReturnType<typeof setTimeout> | null = null;
+  const PILL_IDLE_MS = 2500;
+
+  function bumpPillVisibility(): void {
+    ui.setPillVisible(true);
+    if (pillHideTimer) clearTimeout(pillHideTimer);
+    pillHideTimer = setTimeout(() => {
+      // Don't hide if the popover is open
+      if (!ui.themePopoverOpen) {
+        ui.setPillVisible(false);
+      }
+    }, PILL_IDLE_MS);
+  }
 </script>
 
 <svelte:window
   ondragover={handleDragOver}
   ondragleave={handleDragLeave}
   ondrop={handleDrop}
+  onmousemove={bumpPillVisibility}
 />
 
 <main class="app">
