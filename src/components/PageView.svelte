@@ -2,7 +2,7 @@
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
   import { renderPageToCanvas } from '$lib/pdf/renderer';
-  import { findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
+  import { resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
 
   let canvasContainer: HTMLDivElement;
   let currentRenderToken = 0;
@@ -19,19 +19,16 @@
 
     const myToken = ++currentRenderToken;
 
-    // Theme fallback chain: stored ID → default → first available.
-    // doq.enable() throws if no theme has been set, so we MUST ensure
-    // setActiveTheme has been called at least once.
-    const theme =
-      findThemeById(themeId) ??
-      findThemeById('Firefox/Dark') ??
-      listThemes()[0] ??
-      null;
+    // Resolve + apply the active theme via the shared fallback chain, and
+    // write back to the ui store if it differs (keeps stored ID in sync).
+    const theme = resolveActiveTheme(themeId);
     if (theme) {
       setActiveTheme(theme);
+      if (theme.id !== themeId) {
+        ui.setActiveThemeId(theme.id);
+      }
     }
-    // If theme is null, doq has zero schemes — we render in light mode and
-    // the page still works.
+    // If theme is null, doq has zero schemes — light rendering only.
 
     (async () => {
       try {

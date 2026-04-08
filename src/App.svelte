@@ -9,7 +9,7 @@
   import DragOverlay from './components/DragOverlay.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { initDoq, findThemeById, setActiveTheme, listThemes } from '$lib/doq-bridge';
+  import { initDoq, resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
   import { loadPdfFromBuffer, PdfLoadError } from '$lib/pdf/loader';
   import { matchShortcut } from '$lib/keyboard';
 
@@ -18,16 +18,15 @@
   onMount(async () => {
     try {
       await initDoq();
-      // Theme fallback chain: stored ID → default → first available.
-      // doq.enable() throws if no theme has been set, so we MUST resolve to
-      // an actual theme before any rendering occurs.
-      const theme =
-        findThemeById(ui.activeThemeId) ??
-        findThemeById('Firefox/Dark') ??
-        listThemes()[0] ??
-        null;
+      const theme = resolveActiveTheme(ui.activeThemeId);
       if (theme) {
         setActiveTheme(theme);
+        // Write back to the ui store if the fallback chain resolved to a
+        // different theme than what was persisted. Keeps ui.activeThemeId in
+        // sync with what doq is actually applying.
+        if (theme.id !== ui.activeThemeId) {
+          ui.setActiveThemeId(theme.id);
+        }
       }
       // If theme is null, doq has zero schemes — light rendering only.
     } catch (err) {

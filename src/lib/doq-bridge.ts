@@ -48,6 +48,27 @@ export function findThemeById(id: ThemeId): Theme | null {
   return themes.find((t) => t.id === id) ?? null;
 }
 
+const DEFAULT_THEME_ID: ThemeId = 'Firefox/Dark';
+
+/**
+ * Single source of truth for theme resolution with fallback.
+ *
+ * Tries: the preferred ID → the default (Firefox/Dark) → the first available
+ * theme → null if doq has no themes at all.
+ *
+ * Callers should compare the returned theme's `id` against `preferredId` and
+ * write back to the ui store if they differ, so the stored theme stays in
+ * sync with the actually-applied theme.
+ */
+export function resolveActiveTheme(preferredId: ThemeId): Theme | null {
+  return (
+    findThemeById(preferredId) ??
+    findThemeById(DEFAULT_THEME_ID) ??
+    themes[0] ??
+    null
+  );
+}
+
 /**
  * Apply a theme. Always uses the array form [schemeIdx, toneIdx] to avoid
  * doq's string parser bug with multi-word tone names like "Polar Night".
