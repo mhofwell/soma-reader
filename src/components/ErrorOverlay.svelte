@@ -4,7 +4,17 @@
   function handleReset(): void {
     pdf.reset();
   }
+
+  function handleKey(e: KeyboardEvent): void {
+    // Escape dismisses the error overlay and returns to the empty state.
+    if (e.key === 'Escape' && pdf.loadingState === 'error') {
+      e.preventDefault();
+      pdf.reset();
+    }
+  }
 </script>
+
+<svelte:window onkeydown={handleKey} />
 
 {#if pdf.loadingState === 'error'}
   <div class="overlay" role="alert">

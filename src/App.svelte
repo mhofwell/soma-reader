@@ -38,6 +38,12 @@
   });
 
   async function handleFile(file: File): Promise<void> {
+    // Early return if another load is already in progress. Without this
+    // guard, a second drop during an in-flight load starts a parallel
+    // parse and the slower one wins — confusing the user.
+    if (pdf.loadingState === 'reading-file' || pdf.loadingState === 'parsing') {
+      return;
+    }
     if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       pdf.setError(`That's not a PDF: ${file.name}`);
       return;

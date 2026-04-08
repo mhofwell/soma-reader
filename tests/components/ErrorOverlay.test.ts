@@ -27,4 +27,19 @@ describe('ErrorOverlay', () => {
     await fireEvent.click(btn);
     expect(pdf.loadingState).toBe('idle');
   });
+
+  it('Escape key dismisses the error and returns to idle', async () => {
+    pdf.setError('boom');
+    render(ErrorOverlay);
+    expect(pdf.loadingState).toBe('error');
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(pdf.loadingState).toBe('idle');
+  });
+
+  it('Escape is a no-op when not in error state', async () => {
+    render(ErrorOverlay);
+    expect(pdf.loadingState).toBe('idle');
+    await fireEvent.keyDown(window, { key: 'Escape' });
+    expect(pdf.loadingState).toBe('idle');
+  });
 });
