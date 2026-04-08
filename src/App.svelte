@@ -60,21 +60,31 @@
     }
   }
 
-  function handleDragOver(e: DragEvent): void {
+  // Drag counter pattern: increment on dragenter, decrement on dragleave.
+  // Avoids the flicker bug with the `relatedTarget === null` check, which
+  // can fire spuriously when moving between child elements on some browsers.
+  let dragEnterDepth = 0;
+
+  function handleDragEnter(e: DragEvent): void {
     e.preventDefault();
-    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+    dragEnterDepth++;
     ui.setDragOver(true);
   }
 
+  function handleDragOver(e: DragEvent): void {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  }
+
   function handleDragLeave(e: DragEvent): void {
-    // Only clear when leaving the window entirely
-    if (e.relatedTarget === null) {
-      ui.setDragOver(false);
-    }
+    e.preventDefault();
+    dragEnterDepth = Math.max(0, dragEnterDepth - 1);
+    if (dragEnterDepth === 0) ui.setDragOver(false);
   }
 
   async function handleDrop(e: DragEvent): Promise<void> {
     e.preventDefault();
+    dragEnterDepth = 0;
     ui.setDragOver(false);
     const file = e.dataTransfer?.files?.[0];
     if (file) await handleFile(file);
@@ -157,18 +167,31 @@
   const PILL_IDLE_MS = 2500;
 
   function bumpPillVisibility(): void {
+    // Fast path: if the pill is already visible AND a hide timer is already
+    // queued, just reset the timer without touching the reactive store.
+    // This avoids triggering reactivity on every single mousemove event
+    // (thousands per second on an active session).
+    if (ui.pillVisible && pillHideTimer !== null) {
+      clearTimeout(pillHideTimer);
+      pillHideTimer = setTimeout(scheduleHide, PILL_IDLE_MS);
+      return;
+    }
     ui.setPillVisible(true);
     if (pillHideTimer) clearTimeout(pillHideTimer);
-    pillHideTimer = setTimeout(() => {
-      // Don't hide if the popover is open
-      if (!ui.themePopoverOpen) {
-        ui.setPillVisible(false);
-      }
-    }, PILL_IDLE_MS);
+    pillHideTimer = setTimeout(scheduleHide, PILL_IDLE_MS);
+  }
+
+  function scheduleHide(): void {
+    // Don't hide if the popover is open
+    if (!ui.themePopoverOpen) {
+      ui.setPillVisible(false);
+    }
+    pillHideTimer = null;
   }
 </script>
 
 <svelte:window
+  ondragenter={handleDragEnter}
   ondragover={handleDragOver}
   ondragleave={handleDragLeave}
   ondrop={handleDrop}
