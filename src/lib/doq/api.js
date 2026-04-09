@@ -26,7 +26,7 @@ async function loadThemes(path) {
     const url = new URL(path, import.meta.url);
     themes = await fetch(url).then(response => response.json());
   } catch (e) {
-    console.error(`doq: failed to load default themes: ${e.message}`);
+
   }
   return themes;
 }

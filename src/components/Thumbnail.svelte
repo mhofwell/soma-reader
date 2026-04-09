@@ -85,7 +85,7 @@
       renderedCanvas = c;
     } catch (err) {
       if (myToken !== currentRenderToken) return;
-      console.error(`Failed to render thumb ${pageNumber}`, err);
+
     }
   }
 

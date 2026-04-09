@@ -130,7 +130,6 @@
           const vp = page.getViewport({ scale });
           dims.push({ width: vp.width, height: vp.height });
         } catch (err) {
-          console.error(`Failed to get viewport for page ${n}`, err);
           // Fall back to a letter-sized placeholder so the layout stays
           // coherent. The page itself will show a render error later.
           dims.push({ width: 612 * scale, height: 792 * scale });
@@ -299,7 +298,6 @@
     } catch (err) {
       if (myToken !== renderTokens.get(pageNum)) return;
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`Failed to render page ${pageNum}`, err);
       pageErrors = {
         ...pageErrors,
         [pageNum]: `This page failed to render (${msg})`

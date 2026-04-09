@@ -31,7 +31,6 @@
       }
       // If theme is null, doq has zero schemes — light rendering only.
     } catch (err) {
-      console.error('doq init failed', err);
       // Fall back to non-dark rendering — the reader still works.
     } finally {
       doqReady = true;
