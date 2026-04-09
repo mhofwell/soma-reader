@@ -1,6 +1,8 @@
+<img src="public/soma-logo.png" alt="Soma" width="48" height="48" align="left" style="margin-right: 12px;" />
+
 # Soma — Made for night reading
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Svelte](https://img.shields.io/badge/svelte-5-orange?logo=svelte) ![Vite](https://img.shields.io/badge/vite-6-purple?logo=vite) ![TypeScript](https://img.shields.io/badge/typescript-5-blue?logo=typescript)
+![Version](https://img.shields.io/badge/version-0.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Svelte](https://img.shields.io/badge/svelte-5-orange?logo=svelte) ![Vite](https://img.shields.io/badge/vite-6-purple?logo=vite) ![TypeScript](https://img.shields.io/badge/typescript-5-blue?logo=typescript)
 
 Soma is a smooth, rich dark-mode PDF reader built with Svelte 5. Curated themes, crisp text, and colors that stay true — even in the dark.
 
