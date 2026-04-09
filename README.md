@@ -1,35 +1,69 @@
-# PDF Dark
+# Soma — Made for night reading
 
-A web app that lets you drop a PDF and read it in genuinely good dark mode. Zero login. Zero upload. Everything happens in your browser.
+![Version](https://img.shields.io/badge/version-0.1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Svelte](https://img.shields.io/badge/svelte-5-orange?logo=svelte) ![Vite](https://img.shields.io/badge/vite-6-purple?logo=vite) ![TypeScript](https://img.shields.io/badge/typescript-5-blue?logo=typescript)
 
-**Tagline:** *Made for night reading.*
+Soma is a smooth, rich dark-mode PDF reader built with Svelte 5. Curated themes, crisp text, and colors that stay true — even in the dark.
 
-## What makes it different
+## About Soma
 
-Most "PDF dark mode" tools (browser extensions, CSS filter hacks) destroy image colors and produce muddy, low-contrast output. We use a perceptually-uniform CIELAB color transformation via [doq](https://github.com/shivaprsd/doq) (vendored in `src/lib/doq/`) that preserves image content and produces text that's genuinely pleasant to read.
+Reading PDFs at night shouldn't mean blinding white pages or washed-out inverted colors. Soma applies curated color themes directly to PDF rendering so text stays sharp and colors stay faithful — not just a CSS filter slapped on top.
 
-## Tech stack
+## What You Can Do With Soma
 
-- [Svelte 5](https://svelte.dev) (runes) + TypeScript
-- [Vite](https://vitejs.dev) for dev/build
-- [pdfjs-dist](https://github.com/mozilla/pdf.js) for PDF parsing/rendering
-- [doq](https://github.com/shivaprsd/doq) (MIT, vendored) for CIELAB color transformation
+| Feature | What It Does |
+|---------|-------------|
+| **Curated Dark Themes** | Hand-tuned color palettes that preserve readability and color accuracy — not just "invert white to black" |
+| **Drag-and-Drop PDF Loading** | Drop any PDF onto the window and start reading instantly |
+| **Thumbnail Navigation** | Sidebar with page thumbnails for quick visual navigation |
+| **Keyboard Shortcuts** | Navigate pages, toggle sidebar, zoom, and switch themes without touching the mouse |
+| **Persistent Preferences** | Your theme, zoom level, and sidebar state are remembered across sessions via localStorage |
 
-## Develop
+## Dependencies
+
+### Runtime
+
+- [`pdfjs-dist`](https://github.com/niclasberg/pdfjs-dist) — Mozilla's PDF.js for parsing and rendering PDF documents
+- [`phosphor-svelte`](https://github.com/haruaki07/phosphor-svelte) — Icon library
+
+### Development
+
+- [Svelte 5](https://svelte.dev) — UI framework with runes reactivity
+- [Vite 6](https://vite.dev) — Build tool and dev server
+- [TypeScript 5](https://www.typescriptlang.org) — Type safety
+- [Vitest](https://vitest.dev) — Test runner
+
+### Getting Started
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm test         # vitest
-npm run check    # svelte-check
-npm run build    # production build
+npm run dev
 ```
 
-## Acknowledgments
+Open `http://localhost:5173` and drop a PDF.
 
-- **doq** © shivaprsd — MIT license. Vendored in `src/lib/doq/`.
-- **pdfjs-dist** © Mozilla — Apache 2.0.
+## Implementation Details
 
-## License
+### Rendering Pipeline
 
-MIT
+Soma uses a custom rendering bridge (`doq-bridge`) that sits between PDF.js and the canvas. When a theme is active, the bridge intercepts PDF drawing operations and remaps colors before they hit the canvas — so you get true themed rendering, not a post-process filter.
+
+### Architecture
+
+```
+src/
+├── components/       # Svelte 5 components (App, Sidebar, PageView, etc.)
+├── lib/
+│   ├── doq/          # Color-remapping engine (annotations, color math, drawing ops)
+│   ├── pdf/          # PDF loading, rendering, thumbnails, scroll utilities
+│   ├── stores/       # Svelte 5 rune-based state (UI prefs, PDF document state)
+│   ├── persist.ts    # localStorage persistence
+│   ├── keyboard.ts   # Keyboard shortcut bindings
+│   └── doq-bridge.ts # Bridge between PDF.js and the doq color engine
+└── types.ts          # Shared TypeScript types
+```
+
+### Key Design Decisions
+
+- **Canvas rendering over DOM** — PDF pages render to `<canvas>` for pixel-perfect output and theme color accuracy
+- **No server, no service worker** — Pure static SPA; deploy anywhere that serves HTML
+- **Rune-based stores** — Svelte 5 runes (`$state`, `$derived`) for reactive state instead of classic stores
