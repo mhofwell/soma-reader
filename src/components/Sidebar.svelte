@@ -38,26 +38,35 @@
     </div>
   {:else}
     <div class="empty-placeholder">
-      <blockquote class="definition">
-        <div class="def-head">
-          <span class="word">soma</span>
-          <span class="ipa">/ˈsoʊ.mə/</span>
-          <span class="pos">n.</span>
-        </div>
-        <p class="def-body">The state reached when friction between reader and text disappears — the page goes dark, the type sharpens, and nothing competes for attention.</p>
-        <cite class="def-cite">cf. Huxley, <em>Brave New World</em>, 1932</cite>
-      </blockquote>
+      <div class="empty-center">
+        <blockquote class="definition">
+          <div class="def-head">
+            <span class="word">soma</span>
+            <span class="ipa">/ˈsoʊ.mə/</span>
+            <span class="pos">n.</span>
+          </div>
+          <p class="def-body">The state reached when friction between reader and text disappears — the page goes dark, the type sharpens, and nothing competes for attention.</p>
+          <cite class="def-cite">cf. Huxley, <em>Brave New World</em>, 1932</cite>
+        </blockquote>
 
-      <div class="shortcuts">
-        <div class="shortcuts-label">Shortcuts</div>
-        <ul class="shortcut-list">
-          <li><kbd>⌘</kbd><kbd>o</kbd><span>Open PDF</span></li>
-          <li><kbd>Space</kbd><span>Toggle sidebar</span></li>
-          <li><kbd>←</kbd><kbd>→</kbd><span>Prev / next page</span></li>
-          <li><kbd>+</kbd><kbd>−</kbd><span>Zoom in / out</span></li>
-          <li><kbd>0</kbd><span>Reset zoom</span></li>
-        </ul>
+        <div class="shortcuts">
+          <div class="shortcuts-label">Shortcuts</div>
+          <ul class="shortcut-list">
+            <li><kbd>⌘</kbd><kbd>o</kbd><span>Open PDF</span></li>
+            <li><kbd>Space</kbd><span>Toggle sidebar</span></li>
+            <li><kbd>←</kbd><kbd>→</kbd><span>Prev / next page</span></li>
+            <li><kbd>+</kbd><kbd>−</kbd><span>Zoom in / out</span></li>
+            <li><kbd>0</kbd><span>Reset zoom</span></li>
+          </ul>
+        </div>
       </div>
+
+      <a
+        class="feature-link"
+        href="https://github.com/mhofwell/soma-reader/issues/new?labels=enhancement&title=Feature+request:+&body=Describe+the+feature+you%27d+like+to+see"
+        target="_blank"
+        rel="noopener noreferrer"
+      >Request a feature</a>
     </div>
   {/if}
   </div>
@@ -202,11 +211,17 @@
 
   .empty-placeholder {
     flex: 1;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    justify-items: center;
+    padding: 20px 28px 24px;
+  }
+
+  .empty-center {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 20px 28px 44px;
   }
 
   .definition {
@@ -313,6 +328,18 @@
     box-shadow:
       inset 0 -1px 0 rgba(0, 0, 0, 0.4),
       0 1px 1px rgba(0, 0, 0, 0.25);
+  }
+
+  .feature-link {
+    font-size: 11px;
+    color: var(--text-faint);
+    text-decoration: none;
+    letter-spacing: -0.005em;
+    transition: color 120ms ease;
+  }
+
+  .feature-link:hover {
+    color: var(--text-dim);
   }
 
   /* Responsive baseline: on narrow viewports the sidebar becomes a drawer
