@@ -53,7 +53,7 @@
       {#if isLoading}
         <span class="filename">{pdf.filename || 'Reading'}</span> — reading…
       {:else}
-        Drop, click, or press <kbd>⌘</kbd><kbd>o</kbd> to open a PDF.
+        Drop, click, or press <kbd class="sym">⌘</kbd><kbd>o</kbd> to open a PDF.
       {/if}
     </div>
   </button>
@@ -386,4 +386,7 @@
       0 1px 2px rgba(0, 0, 0, 0.35);
   }
 
+  .subtitle kbd.sym {
+    padding-top: 1px;
+  }
 </style>
