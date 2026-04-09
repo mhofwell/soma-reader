@@ -8,6 +8,7 @@
 </script>
 
 <aside class="sidebar" class:collapsed={ui.sidebarCollapsed}>
+  <div class="sidebar-inner">
   <header class="header">
     <div class="app-row">
       <img class="logo" src="/soma-logo.png" alt="Soma logo" />
@@ -36,11 +37,41 @@
       <ThumbnailList />
     </div>
   {:else}
-    <div class="empty-placeholder">No PDF loaded</div>
+    <div class="empty-placeholder">
+      <blockquote class="definition">
+        <div class="def-head">
+          <span class="word">soma</span>
+          <span class="ipa">/ˈsoʊ.mə/</span>
+          <span class="pos">n.</span>
+        </div>
+        <p class="def-body">The state reached when friction between reader and text disappears — the page goes dark, the type sharpens, and nothing competes for attention.</p>
+        <cite class="def-cite">cf. Huxley, <em>Brave New World</em>, 1932</cite>
+      </blockquote>
+
+      <div class="shortcuts">
+        <div class="shortcuts-label">Shortcuts</div>
+        <ul class="shortcut-list">
+          <li><kbd>⌘</kbd><kbd>o</kbd><span>Open PDF</span></li>
+          <li><kbd>Space</kbd><span>Toggle sidebar</span></li>
+          <li><kbd>←</kbd><kbd>→</kbd><span>Prev / next page</span></li>
+          <li><kbd>+</kbd><kbd>−</kbd><span>Zoom in / out</span></li>
+          <li><kbd>0</kbd><span>Reset zoom</span></li>
+        </ul>
+      </div>
+    </div>
   {/if}
+  </div>
 </aside>
 
 <style>
+  .sidebar-inner {
+    width: 260px;
+    min-width: 260px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
   .sidebar {
     width: 260px;
     background: var(--panel);
@@ -61,14 +92,12 @@
        all the way left as a single cohesive motion. */
     transition:
       width 280ms cubic-bezier(0.4, 0, 0.2, 1),
-      margin-right 280ms cubic-bezier(0.4, 0, 0.2, 1),
       opacity 220ms ease-out,
       border-width 280ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .sidebar.collapsed {
     width: 0;
-    margin-right: -12px; /* cancels the .app gap when fully collapsed */
     opacity: 0;
     border-width: 0;
     pointer-events: none;
@@ -174,14 +203,116 @@
   .empty-placeholder {
     flex: 1;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 24px;
+    padding: 20px 28px 44px;
+  }
+
+  .definition {
+    margin: 0;
+    padding: 0;
+    max-width: 220px;
+  }
+
+  .def-head {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .word {
+    font-size: 18px;
+    font-weight: 600;
+    font-style: italic;
+    color: var(--text-dim);
+    letter-spacing: -0.02em;
+  }
+
+  .ipa {
+    font-size: 12px;
     color: var(--text-faint);
-    font-size: 10px;
+    letter-spacing: 0.01em;
+  }
+
+  .pos {
+    font-size: 12px;
+    font-style: italic;
+    color: var(--text-faint);
+  }
+
+  .def-body {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-faint);
+    letter-spacing: -0.005em;
+  }
+
+  .def-cite {
+    font-size: 11px;
+    color: var(--text-faint);
+    font-style: normal;
+  }
+
+  .shortcuts {
+    margin-top: 40px;
+    width: 100%;
+  }
+
+  .shortcuts-label {
+    font-size: 9px;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
     text-align: center;
+  }
+
+  .shortcut-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .shortcut-list li {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+
+  .shortcut-list li span {
+    margin-left: auto;
+  }
+
+  .shortcut-list kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    font-family: -apple-system, "SF Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-dim);
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow:
+      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+      0 1px 1px rgba(0, 0, 0, 0.25);
   }
 
   /* Responsive baseline: on narrow viewports the sidebar becomes a drawer

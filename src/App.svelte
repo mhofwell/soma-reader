@@ -131,6 +131,15 @@
       return;
     }
 
+    // Toggle theme popover (must be before the popover bail-out so T can
+    // both open and close it). Only available when a PDF is loaded since
+    // ControlPill (which hosts the popover) only renders then.
+    if (e.key === 't' && pdf.doc) {
+      e.preventDefault();
+      ui.setThemePopoverOpen(!ui.themePopoverOpen);
+      return;
+    }
+
     // Bail out if the theme popover is CURRENTLY mounted and open. The
     // popover only exists while a PDF is loaded (inside ControlPill, which
     // is only rendered when pdf.doc !== null). ControlPill clears the
@@ -150,10 +159,10 @@
       return;
     }
 
-    // Toggle sidebar (only if a PDF is loaded)
-    if (matchShortcut(e, { key: '\\', meta: true })) {
+    // Toggle sidebar
+    if (e.key === ' ') {
       e.preventDefault();
-      if (pdf.doc) ui.toggleSidebar();
+      ui.toggleSidebar();
       return;
     }
 
