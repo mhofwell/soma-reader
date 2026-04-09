@@ -37,8 +37,8 @@ Reading PDFs at night shouldn't mean blinding white pages or washed-out inverted
 ### Getting Started
 
 ```bash
-npm install
-npm run dev
+bun install
+bun dev
 ```
 
 Open `http://localhost:5173` and drop a PDF.
