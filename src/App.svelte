@@ -232,6 +232,20 @@
   onkeydown={handleGlobalKey}
 />
 
+<div class="mobile-gate">
+  <img class="mobile-logo" src="/soma-logo.png" alt="Soma" />
+  <div class="mobile-wordmark">Soma</div>
+  <div class="mobile-tagline">Made for night reading.</div>
+  <p class="mobile-message">Soma is built for desktop.<br />Mobile is on the way.</p>
+  <a class="mobile-url" href="https://readwithsoma.com">readwithsoma.com</a>
+  <a
+    class="mobile-feature"
+    href="https://github.com/mhofwell/soma-reader/issues/new?labels=enhancement&title=Feature+request:+mobile+support&body=I%27d+like+to+use+Soma+on+mobile!"
+    target="_blank"
+    rel="noopener noreferrer"
+  >Want mobile? Let us know</a>
+</div>
+
 <main class="app" class:sidebar-collapsed={ui.sidebarCollapsed}>
   <LoadingOverlay />
   <ErrorOverlay />
@@ -348,5 +362,76 @@
       border: none;
       cursor: pointer;
     }
+  }
+
+  /* ─── Mobile gate ──────────────────────────────────────────────── */
+  .mobile-gate {
+    display: none;
+  }
+
+  @media (max-width: 768px) {
+    .mobile-gate {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      padding: 48px 32px;
+      text-align: center;
+    }
+
+    .app {
+      display: none;
+    }
+  }
+
+  .mobile-logo {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+  }
+
+  .mobile-wordmark {
+    font-size: 32px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .mobile-tagline {
+    font-size: 16px;
+    color: var(--text-dim);
+    letter-spacing: -0.005em;
+    margin-bottom: 40px;
+  }
+
+  .mobile-message {
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-faint);
+    margin: 0 0 32px 0;
+  }
+
+  .mobile-url {
+    font-size: 13px;
+    color: var(--text-dim);
+    text-decoration: none;
+    letter-spacing: -0.005em;
+    margin-bottom: 16px;
+  }
+
+  .mobile-feature {
+    font-size: 12px;
+    color: var(--text-faint);
+    text-decoration: none;
+    transition: color 120ms ease;
+  }
+
+  .mobile-feature:hover {
+    color: var(--text-dim);
   }
 </style>
