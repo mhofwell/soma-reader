@@ -54,7 +54,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 15, 16, 0.85);
+    background: color-mix(in srgb, var(--surface-0) 85%, transparent);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: flex;
@@ -64,7 +64,7 @@
   }
 
   .card {
-    background: var(--panel);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 32px 36px;
@@ -91,7 +91,7 @@
   .reset-btn {
     margin-top: 4px;
     padding: 9px 18px;
-    background: var(--panel-2);
+    background: transparent;
     border: 1px solid var(--border);
     border-radius: 6px;
     color: var(--text);
@@ -102,7 +102,7 @@
   }
 
   .reset-btn:hover {
-    background: #2a2a2f;
+    background: var(--hover);
     border-color: var(--accent);
   }
 </style>

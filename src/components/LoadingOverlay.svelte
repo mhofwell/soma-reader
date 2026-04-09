@@ -1,11 +1,11 @@
 <script lang="ts">
   import { pdf } from '$lib/stores/pdf.svelte';
+  import type { LoadingState } from '../types';
 
   const SHOW_AFTER_MS = 300;
-  const stepLabels: Record<string, string> = {
+  const stepLabels: Partial<Record<LoadingState, string>> = {
     'reading-file': 'Reading file',
-    'parsing': 'Parsing PDF',
-    'rendering': 'Rendering page'
+    'parsing': 'Parsing PDF'
   };
 
   let visible = $state(false);
@@ -14,9 +14,13 @@
 
   $effect(() => {
     const state = pdf.loadingState;
-    const isLoading = state === 'reading-file' || state === 'parsing' || state === 'rendering';
+    const isLoading = state === 'reading-file' || state === 'parsing';
+    // Only show the overlay during a SWAP (when there's already a doc behind
+    // it). On first load (pdf.doc === null), the EmptyState's in-place
+    // loading visuals handle the feedback — no overlay needed.
+    const isSwap = pdf.doc !== null;
 
-    if (!isLoading) {
+    if (!isLoading || !isSwap) {
       visible = false;
       loadingStartedAt = null;
       if (timer) {
@@ -61,7 +65,7 @@
   .overlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 15, 16, 0.7);
+    background: color-mix(in srgb, var(--surface-0) 70%, transparent);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: flex;
@@ -71,7 +75,7 @@
   }
 
   .card {
-    background: var(--panel);
+    background: var(--surface-2);
     border: 1px solid var(--border);
     border-radius: 12px;
     padding: 24px 32px;

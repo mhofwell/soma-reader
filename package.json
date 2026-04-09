@@ -1,5 +1,5 @@
 {
-  "name": "pdf-dark-reader",
+  "name": "soma-reader",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -26,6 +26,7 @@
     "vitest-canvas-mock": "^0.3.3"
   },
   "dependencies": {
-    "pdfjs-dist": "^4.7.76"
+    "pdfjs-dist": "^4.7.76",
+    "phosphor-svelte": "^3.1.0"
   }
 }

@@ -24,7 +24,11 @@
 </script>
 
 {#if ui.pillVisible}
-  <div class="pill" transition:fade={{ duration: 200 }}>
+  <div
+    class="pill"
+    class:with-sidebar={!ui.sidebarCollapsed}
+    transition:fade={{ duration: 200 }}
+  >
     <button
       class="pill-btn"
       onclick={() => pdf.prevPage()}
@@ -100,10 +104,10 @@
     bottom: 18px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(28, 28, 32, 0.92);
+    background: color-mix(in srgb, var(--surface-2) 92%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--border);
     border-radius: 999px;
     padding: 6px 8px;
     display: flex;
@@ -111,6 +115,17 @@
     gap: 4px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
     z-index: 100;
+    /* Smoothly slide horizontally when the sidebar opens/closes so the pill
+       stays centered on the page-view rather than the viewport. Match the
+       sidebar's fly transition duration (250ms). */
+    transition: left 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* When the sidebar is open, the page-view is offset by (sidebar 260 + gap 12)
+     from the viewport's left side. To center the pill on the page-view rather
+     than the viewport, shift it right by half of that = 136px. */
+  .pill.with-sidebar {
+    left: calc(50% + 136px);
   }
 
   .pill-btn {
@@ -119,7 +134,7 @@
     border-radius: 999px;
     background: transparent;
     border: none;
-    color: #c0c0c8;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -130,7 +145,7 @@
   }
 
   .pill-btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--hover);
   }
 
   .pill-btn:disabled {
@@ -144,7 +159,7 @@
   }
 
   .pill-text {
-    color: #c0c0c8;
+    color: var(--text-muted);
     font-size: 11px;
     padding: 0 8px;
     font-variant-numeric: tabular-nums;
@@ -163,13 +178,13 @@
   }
 
   .pill-text-button:hover {
-    background: rgba(255, 255, 255, 0.06);
+    background: var(--hover);
   }
 
   .pill-sep {
     width: 1px;
     height: 18px;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--border);
     margin: 0 4px;
   }
 

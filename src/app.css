@@ -1,9 +1,32 @@
 :root {
-  --bg: #0f0f10;
-  --panel: #1a1a1c;
-  --panel-2: #232327;
-  --border: #2d2d33;
+  /* ============================================================
+     Dark surface ramp — cool neutral, perceptually even.
+     Modeled on Linear's dark palette. Three surfaces are enough;
+     floating elements (pill, popover) sit on --surface-2, the
+     LIGHTEST of the three, so elevation reads correctly in dark
+     mode (higher elevation = lighter).
+     ============================================================ */
+  --surface-0: #0e0f12;  /* deepest — PDF reading area, sidebar, all base surfaces */
+  /* --surface-1 is intentionally merged with --surface-0: the sidebar should
+     read as the same dark as the page, with a 1px border as the only visual
+     separator (Linear / Arc / Cursor convention). Kept as a named alias so
+     components that semantically reference "panel" surfaces still compile. */
+  --surface-1: var(--surface-0);
+  --surface-2: #262933;  /* floating — pill, popover, modals */
+
+  /* Derived from the same axis */
+  --border: #2e313a;
+  --hover: rgba(255, 255, 255, 0.06); /* universal hover overlay */
+
+  /* Legacy aliases — kept so existing `var(--bg)` / `var(--panel)` /
+     `var(--panel-2)` references resolve to the new ramp without a
+     file-wide rename. Prefer the --surface-* names in new code. */
+  --bg: var(--surface-0);
+  --panel: var(--surface-1);
+  --panel-2: var(--surface-2);
+
   --text: #e8e8ea;
+  --text-muted: #c0c0c8;  /* between --text and --text-dim; used on floating surfaces like the pill */
   --text-dim: #8a8a92;
   --text-faint: #50505a;
   --accent: #6aa9ff;
@@ -25,6 +48,11 @@ html, body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* The app manages its own internal scroll surfaces (.page-view, sidebar
+     thumbnails). Body-level scroll must never happen — otherwise transforms
+     like the empty-state translateY fade-in can briefly extend beyond the
+     viewport and trigger a flash of the body scrollbar. */
+  overflow: hidden;
 }
 
 #app {

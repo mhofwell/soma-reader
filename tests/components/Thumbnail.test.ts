@@ -7,8 +7,7 @@ import { ui } from '../../src/lib/stores/ui.svelte';
 // Mock renderThumbnail so we can control its async timing
 const renderThumbnailMock = vi.fn();
 vi.mock('../../src/lib/pdf/thumbnail', () => ({
-  renderThumbnail: (page: any, canvas: any) => renderThumbnailMock(page, canvas),
-  THUMBNAIL_WIDTH_PX: 150
+  renderThumbnail: (page: any, canvas: any, _themeId: any) => renderThumbnailMock(page, canvas)
 }));
 
 // Track which theme was "in effect" when each render started, via a tag on the canvas

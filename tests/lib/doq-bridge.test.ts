@@ -24,10 +24,10 @@ describe('doq-bridge', () => {
     expect(themes[0]).toHaveProperty('toneName');
   });
 
-  it('finds Nord Polar Night by name (multi-word tone)', async () => {
-    const { initDoq, findTheme } = await import('../../src/lib/doq-bridge');
+  it('finds Nord Polar Night by ID (multi-word tone)', async () => {
+    const { initDoq, findThemeById } = await import('../../src/lib/doq-bridge');
     await initDoq();
-    const theme = findTheme('Nord', 'Polar Night');
+    const theme = findThemeById('Nord/Polar Night');
     expect(theme).not.toBeNull();
     expect(theme!.schemeName).toBe('Nord');
     expect(theme!.toneName).toBe('Polar Night');
@@ -36,9 +36,9 @@ describe('doq-bridge', () => {
   });
 
   it('setActiveTheme works for multi-word tones (regression for doq parser bug)', async () => {
-    const { initDoq, findTheme, setActiveTheme } = await import('../../src/lib/doq-bridge');
+    const { initDoq, findThemeById, setActiveTheme } = await import('../../src/lib/doq-bridge');
     await initDoq();
-    const theme = findTheme('Nord', 'Polar Night');
+    const theme = findThemeById('Nord/Polar Night');
     expect(theme).not.toBeNull();
     expect(() => setActiveTheme(theme!)).not.toThrow();
   });

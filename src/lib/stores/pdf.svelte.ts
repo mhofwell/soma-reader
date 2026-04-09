@@ -6,34 +6,42 @@ class PdfStore {
   // we treat the doc as an opaque handle and only ever swap the whole reference,
   // never mutate its internals. This also preserves object identity for `toBe`.
   doc = $state.raw<PDFDocumentProxy | null>(null);
-  numPages = $state(0);
+  numPages = $derived(this.doc?.numPages ?? 0);
   currentPage = $state(1);
   filename = $state('');
   loadingState = $state<LoadingState>('idle');
   errorMessage = $state('');
+  isLoading = $derived(
+    this.loadingState === 'reading-file' || this.loadingState === 'parsing'
+  );
 
   setLoading(state: Exclude<LoadingState, 'ready' | 'error'>): void {
     this.loadingState = state;
     this.errorMessage = '';
   }
 
+  /**
+   * Set the filename early (before setDocument), so the EmptyState loading UI
+   * can echo the file the user just dropped while parsing is still in flight.
+   */
+  setFilename(name: string): void {
+    this.filename = name;
+  }
+
+  /** Destroy a PDFDocumentProxy, swallowing the cancellation errors that
+   *  pdf.js throws when in-flight renders get torn down. */
+  private safeDestroy(doc: PDFDocumentProxy): void {
+    const result = doc.destroy?.();
+    if (result && typeof result.catch === 'function') {
+      result.catch(() => { /* ignore cancellation / teardown errors */ });
+    }
+  }
+
   setDocument(doc: PDFDocumentProxy, filename: string): void {
-    // Release the previous document's worker-side resources. doc.destroy()
-    // returns a Promise that can REJECT with a cancellation error if any
-    // page/thumbnail renders were in flight when destroy() ran — pdf.js
-    // cancels those tasks as part of teardown. Swallow the rejection so
-    // it doesn't surface as an unhandledrejection in the browser/tests.
-    // Optional chaining tolerates test doubles that don't implement destroy().
     if (this.doc !== null && this.doc !== doc) {
-      const destroyResult = this.doc.destroy?.();
-      if (destroyResult && typeof destroyResult.catch === 'function') {
-        destroyResult.catch(() => {
-          /* ignore cancellation and teardown errors from a destroyed proxy */
-        });
-      }
+      this.safeDestroy(this.doc);
     }
     this.doc = doc;
-    this.numPages = doc.numPages;
     this.currentPage = 1;
     this.filename = filename;
     this.loadingState = 'ready';
@@ -74,20 +82,10 @@ class PdfStore {
   }
 
   reset(): void {
-    // Release worker-side resources before dropping the reference.
-    // See setDocument() above for why we attach a catch() — destroy() can
-    // reject when in-flight render tasks get cancelled, and we don't want
-    // that rejection leaking as an unhandledrejection.
     if (this.doc !== null) {
-      const destroyResult = this.doc.destroy?.();
-      if (destroyResult && typeof destroyResult.catch === 'function') {
-        destroyResult.catch(() => {
-          /* ignore cancellation and teardown errors from a destroyed proxy */
-        });
-      }
+      this.safeDestroy(this.doc);
     }
     this.doc = null;
-    this.numPages = 0;
     this.currentPage = 1;
     this.filename = '';
     this.loadingState = 'idle';

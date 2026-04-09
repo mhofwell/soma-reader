@@ -2,6 +2,7 @@ export type ThemeId = string; // Format: "scheme/tone", e.g. "Nord/Polar Night"
 
 export interface Theme {
   id: ThemeId;
+  displayName: string;
   schemeName: string;
   toneName: string;
   schemeIdx: number;
@@ -25,6 +26,5 @@ export type LoadingState =
   | 'idle'
   | 'reading-file'
   | 'parsing'
-  | 'rendering'
   | 'ready'
   | 'error';

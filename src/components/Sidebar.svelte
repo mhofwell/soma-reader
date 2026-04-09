@@ -2,27 +2,29 @@
   import ThumbnailList from './ThumbnailList.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
-  import { fly } from 'svelte/transition';
+  import { FilePlus, CaretLeft } from 'phosphor-svelte';
 
   let { onSwapFile }: { onSwapFile: () => void } = $props();
 </script>
 
-<aside class="sidebar" transition:fly={{ x: -200, duration: 250 }}>
+<aside class="sidebar" class:collapsed={ui.sidebarCollapsed}>
   <header class="header">
     <div class="app-row">
-      <div class="logo"></div>
-      <div class="name">PDF Dark</div>
+      <img class="logo" src="/soma-logo.png" alt="Soma logo" />
+      <div class="name">Soma</div>
+      <button
+        class="collapse-btn"
+        onclick={() => ui.toggleSidebar()}
+        aria-label="Collapse sidebar"
+      >
+        <CaretLeft size={16} weight="bold" />
+      </button>
     </div>
     {#if pdf.doc}
       <div class="filename-row">
         <span class="filename" title={pdf.filename}>{pdf.filename}</span>
         <button class="swap-btn" onclick={onSwapFile} aria-label="Open a different PDF">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 3h5v5"></path>
-            <path d="M21 3l-7 7"></path>
-            <path d="M8 21H3v-5"></path>
-            <path d="M3 21l7-7"></path>
-          </svg>
+          <FilePlus size={16} weight="regular" />
         </button>
       </div>
     {/if}
@@ -36,50 +38,89 @@
   {:else}
     <div class="empty-placeholder">No PDF loaded</div>
   {/if}
-
-  <button class="collapse-btn" onclick={() => ui.toggleSidebar()} aria-label="Collapse sidebar">
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-      <polyline points="15 18 9 12 15 6"></polyline>
-    </svg>
-  </button>
 </aside>
 
 <style>
   .sidebar {
-    width: 200px;
+    width: 260px;
     background: var(--panel);
-    border-right: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
-    /* NOTE: do NOT set overflow:hidden here — the collapse chevron
-       intentionally extends past the right edge with right:-10px and would be
-       clipped. Scrolling for the thumbnail list is on .thumbs-scroll only. */
     position: relative;
+    overflow: hidden; /* clips content cleanly during the collapse animation */
+    /* contain: layout style tells the browser the sidebar's internal layout
+       is isolated — children can't affect the rest of the page and vice
+       versa. This lets the browser skip re-laying-out sidebar children
+       during the width transition, reducing per-frame layout cost. */
+    contain: layout style;
+    /* Smooth collapse: width animates 260 → 0, opacity fades, and the
+       negative margin-right cancels the .app gap so the page-view slides
+       all the way left as a single cohesive motion. */
+    transition:
+      width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+      margin-right 280ms cubic-bezier(0.4, 0, 0.2, 1),
+      opacity 220ms ease-out,
+      border-width 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .sidebar.collapsed {
+    width: 0;
+    margin-right: -12px; /* cancels the .app gap when fully collapsed */
+    opacity: 0;
+    border-width: 0;
+    pointer-events: none;
   }
 
   .header {
-    padding: 14px 14px 12px 14px;
-    border-bottom: 1px solid #1f1f24;
+    padding: 14px;
+    border-bottom: 1px solid var(--border);
   }
 
   .app-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
   }
 
   .logo {
-    width: 22px;
-    height: 22px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    border-radius: 5px;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    /* The PNG itself has a transparent background and a soft purple/lavender
+       3D rendering — no need for additional styling. */
   }
 
   .name {
-    color: var(--text);
-    font-size: 12px;
+    /* Sidebar wordmark — same weight/tracking shape as the hero title, but
+       solid white instead of the gradient. */
+    display: inline-block;
+    font-size: 22px;
     font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+    color: #ffffff;
+  }
+
+  .collapse-btn {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 120ms ease, color 120ms ease;
+  }
+
+  .collapse-btn:hover {
+    background: var(--hover);
+    color: var(--text);
   }
 
   .filename-row {
@@ -112,7 +153,7 @@
   }
 
   .swap-btn:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: var(--hover);
     color: var(--text);
   }
 
@@ -141,30 +182,6 @@
     text-transform: uppercase;
     letter-spacing: 0.08em;
     text-align: center;
-  }
-
-  .collapse-btn {
-    position: absolute;
-    top: 50%;
-    right: -10px;
-    transform: translateY(-50%);
-    width: 20px;
-    height: 36px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 0 6px 6px 0;
-    color: var(--text-dim);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    transition: background 120ms ease, color 120ms ease;
-  }
-
-  .collapse-btn:hover {
-    background: var(--panel-2);
-    color: var(--text);
   }
 
   /* Responsive baseline: on narrow viewports the sidebar becomes a drawer

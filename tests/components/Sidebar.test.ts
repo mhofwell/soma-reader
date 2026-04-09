@@ -17,7 +17,7 @@ beforeEach(() => {
 describe('Sidebar', () => {
   it('mounts with app name and filename', () => {
     render(Sidebar, { props: { onSwapFile: () => {} } });
-    expect(screen.getByText('PDF Dark')).toBeTruthy();
+    expect(screen.getByText('Soma')).toBeTruthy();
     expect(screen.getByText('my-paper.pdf')).toBeTruthy();
   });
 

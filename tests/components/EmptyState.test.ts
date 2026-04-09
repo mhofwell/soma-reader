@@ -6,8 +6,11 @@ describe('EmptyState', () => {
   it('mounts with the subtitle text and keyboard hint', () => {
     const onFileSelected = vi.fn();
     render(EmptyState, { props: { onFileSelected } });
-    expect(screen.getByText(/Drop in a PDF to start/i)).toBeTruthy();
-    expect(screen.getByText(/⌘O/i)).toBeTruthy();
+    expect(screen.getByText(/Drop, click, or press/i)).toBeTruthy();
+    // ⌘ and o now live in two separate <kbd> keycap elements, so a regex
+    // searching for "⌘o" as one node won't find it. Match each separately.
+    expect(screen.getByText(/^⌘$/)).toBeTruthy();
+    expect(screen.getByText(/^o$/)).toBeTruthy();
   });
 
   it('exposes the drop zone as a clickable button', () => {

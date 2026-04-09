@@ -9,6 +9,7 @@
   import DragOverlay from './components/DragOverlay.svelte';
   import { pdf } from '$lib/stores/pdf.svelte';
   import { ui } from '$lib/stores/ui.svelte';
+  import { CaretRight } from 'phosphor-svelte';
   import { initDoq, resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
   import { loadPdfFromBuffer, PdfLoadError } from '$lib/pdf/loader';
   import { matchShortcut } from '$lib/keyboard';
@@ -41,9 +42,7 @@
     // Early return if another load is already in progress. Without this
     // guard, a second drop during an in-flight load starts a parallel
     // parse and the slower one wins — confusing the user.
-    if (pdf.loadingState === 'reading-file' || pdf.loadingState === 'parsing') {
-      return;
-    }
+    if (pdf.isLoading) return;
     if (file.type && file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       pdf.setError(`That's not a PDF: ${file.name}`);
       return;
@@ -52,11 +51,26 @@
       // Distinct loading phases — each await yields, letting the LoadingOverlay
       // observe the state transition. Without splitting these the 'reading-file'
       // state would never be visible (set + immediately overwritten).
+      const startTime = performance.now();
+      pdf.setFilename(file.name);
       pdf.setLoading('reading-file');
       const buffer = await file.arrayBuffer();
       pdf.setLoading('parsing');
       const doc = await loadPdfFromBuffer(buffer);
+
+      // Minimum visible loading time — even an instant load (small PDF) gets
+      // a deliberate breath of loading state so the experience is consistent
+      // across file sizes. 500ms feels intentional, not artificial.
+      const elapsed = performance.now() - startTime;
+      const MIN_LOAD_MS = 500;
+      if (elapsed < MIN_LOAD_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_LOAD_MS - elapsed));
+      }
+
       pdf.setDocument(doc, file.name);
+      // Auto-expand the sidebar when a PDF finishes loading. Without this
+      // the user has to hunt for the expand chevron to see thumbnails.
+      ui.setSidebarCollapsed(false);
     } catch (err) {
       if (err instanceof PdfLoadError) {
         pdf.setError(err.message);
@@ -74,7 +88,7 @@
   function handleDragEnter(e: DragEvent): void {
     e.preventDefault();
     dragEnterDepth++;
-    ui.setDragOver(true);
+    if (dragEnterDepth === 1) ui.setDragOver(true);
   }
 
   function handleDragOver(e: DragEvent): void {
@@ -210,19 +224,19 @@
   onkeydown={handleGlobalKey}
 />
 
-<main class="app">
+<main class="app" class:sidebar-collapsed={ui.sidebarCollapsed}>
   <LoadingOverlay />
   <ErrorOverlay />
   <DragOverlay />
   {#if !doqReady}
     <div class="loading">Loading…</div>
   {:else}
-    <!-- Sidebar lives in BOTH empty and reader states so the left-edge
-         affordance is consistent. In empty state the Sidebar shows its
-         "No PDF loaded" placeholder internally; in reader state it shows
-         the filename and thumbnails. -->
+    <!-- Sidebar is always rendered. Its collapsed state is driven by a CSS
+         class on the sidebar element itself, so width/opacity transitions
+         can run smoothly without unmounting/remounting (which used to leave
+         the page-view a beat behind). -->
+    <Sidebar onSwapFile={() => fileInputForSwap.click()} />
     {#if !ui.sidebarCollapsed}
-      <Sidebar onSwapFile={() => fileInputForSwap.click()} />
       <!-- Backdrop only appears at narrow viewports (CSS-controlled) so the
            sidebar drawer can be dismissed by tapping outside on mobile. -->
       <button
@@ -236,9 +250,7 @@
         onclick={() => ui.setSidebarCollapsed(false)}
         aria-label="Show sidebar"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
+        <CaretRight size={16} weight="bold" />
       </button>
     {/if}
     {#if pdf.doc}
@@ -262,7 +274,18 @@
   .app {
     height: 100vh;
     display: flex;
+    gap: 12px;
+    padding: 12px;
+    box-sizing: border-box;
     background: var(--bg);
+    /* Animate the inter-panel gap together with the sidebar's width so
+       collapse/expand reads as a single cohesive motion instead of two
+       sequential phases. */
+    transition: gap 280ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .app.sidebar-collapsed {
+    gap: 0;
   }
 
   .loading {
@@ -274,17 +297,19 @@
     font-size: 13px;
   }
 
+  /* Mirrors the sidebar's .collapse-btn: same size, same padding, same
+     distance from its panel corner. The collapse chevron is 28px from the
+     sidebar's top-right inner edge; this sits 28px from the page-view's
+     top-left inner edge. Panel inner edge = 12px app padding + 1px border
+     = 13px. Button center at 13 + 28 = 41px, minus 14px half-size = 27px. */
   :global(.expand-sidebar-btn) {
     position: fixed;
-    top: 50%;
-    left: 0;
-    transform: translateY(-50%);
-    width: 18px;
-    height: 36px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-left: none;
-    border-radius: 0 6px 6px 0;
+    top: 27px;
+    left: 27px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 6px;
     color: var(--text-dim);
     cursor: pointer;
     display: flex;
@@ -295,7 +320,7 @@
   }
 
   :global(.expand-sidebar-btn):hover {
-    background: var(--panel-2);
+    background: var(--hover);
     color: var(--text);
   }
 

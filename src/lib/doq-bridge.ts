@@ -15,6 +15,27 @@ const doq = doqDefault as unknown as DoqAPI;
 let initialized = false;
 let themes: Theme[] = [];
 
+// User-friendly display names keyed by internal doq ID. The internal IDs
+// (e.g. "Firefox/Dark") are browser-reference labels from doq's upstream
+// source — meaningless to end users. These names describe the actual color.
+const DISPLAY_NAMES: Record<string, string> = {
+  'Chrome/Yellow':    'Amber',
+  'Chrome/Blue':      'Frost',
+  'Chrome/Dark':      'Charcoal',
+  'Firefox/Sepia':    'Linen',
+  'Firefox/Dark':     'Nightshade',
+  'Safari/Sepia':     'Parchment',
+  'Safari/Gray':      'Slate',
+  'Safari/Night':     'Ink',
+  'Nord/Snow Storm':  'Snowdrift',
+  'Nord/Polar Night': 'Arctic',
+  'Solarized/Light':  'Solstice',
+};
+
+// Themes to exclude from the picker entirely (quality issues, e.g. poor
+// link contrast on dark backgrounds).
+const EXCLUDED_THEMES = new Set(['Solarized/Dark']);
+
 export async function initDoq(): Promise<void> {
   if (initialized) return;
 
@@ -24,6 +45,7 @@ export async function initDoq(): Promise<void> {
   themes = (colorsData as DoqColorScheme[]).flatMap((scheme, schemeIdx) =>
     scheme.tones.map((tone, toneIdx) => ({
       id: `${scheme.name}/${tone.name}`,
+      displayName: DISPLAY_NAMES[`${scheme.name}/${tone.name}`] ?? `${scheme.name} ${tone.name}`,
       schemeName: scheme.name,
       toneName: tone.name,
       schemeIdx,
@@ -31,7 +53,7 @@ export async function initDoq(): Promise<void> {
       background: tone.background,
       foreground: tone.foreground
     }))
-  );
+  ).filter((t) => !EXCLUDED_THEMES.has(t.id));
 
   initialized = true;
 }
@@ -40,15 +62,11 @@ export function listThemes(): Theme[] {
   return themes;
 }
 
-export function findTheme(schemeName: string, toneName: string): Theme | null {
-  return themes.find((t) => t.schemeName === schemeName && t.toneName === toneName) ?? null;
-}
-
 export function findThemeById(id: ThemeId): Theme | null {
   return themes.find((t) => t.id === id) ?? null;
 }
 
-const DEFAULT_THEME_ID: ThemeId = 'Firefox/Dark';
+export const DEFAULT_THEME_ID: ThemeId = 'Firefox/Dark';
 
 /**
  * Single source of truth for theme resolution with fallback.
@@ -78,10 +96,3 @@ export function setActiveTheme(theme: Theme): void {
   doq.setTheme([theme.schemeIdx, theme.toneIdx]);
 }
 
-export function enableDoq(): void {
-  doq.enable();
-}
-
-export function disableDoq(): void {
-  doq.disable();
-}

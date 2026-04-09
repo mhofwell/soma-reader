@@ -72,8 +72,16 @@
       const page = await pdf.doc.getPage(pageNumber);
       if (myToken !== currentRenderToken) return;
       const c = document.createElement('canvas');
-      await renderThumbnail(page, c);
+      await renderThumbnail(page, c, ui.activeThemeId);
       if (myToken !== currentRenderToken) return;
+      // Strip the inline width/height that renderPageToCanvas writes onto
+      // the canvas. Without this, the canvas displays at THUMBNAIL_WIDTH_PX
+      // CSS pixels (240) and sits in the top-left of the larger .thumb
+      // container with empty space around it. Removing the inline styles
+      // lets the stylesheet rule (`width: 100%; height: auto`) take over
+      // and stretch the canvas to fill its container.
+      c.style.width = '';
+      c.style.height = '';
       renderedCanvas = c;
     } catch (err) {
       if (myToken !== currentRenderToken) return;

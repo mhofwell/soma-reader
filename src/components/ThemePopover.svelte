@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ui } from '$lib/stores/ui.svelte';
-  import { listThemes, findThemeById, setActiveTheme } from '$lib/doq-bridge';
+  import { listThemes, setActiveTheme } from '$lib/doq-bridge';
   import type { Theme } from '../types';
 
   let { triggerRef }: { triggerRef: HTMLButtonElement | null } = $props();
@@ -9,8 +9,7 @@
 
   function selectTheme(theme: Theme): void {
     ui.setActiveThemeId(theme.id);
-    const t = findThemeById(theme.id);
-    if (t) setActiveTheme(t);
+    setActiveTheme(theme);
     closePopover();
   }
 
@@ -96,12 +95,9 @@
         >
           <span
             class="swatch"
-            style:background="linear-gradient(135deg, {theme.background} 50%, {theme.foreground} 50%)"
+            style:background={theme.background}
           ></span>
-          <span class="name">
-            <span class="scheme">{theme.schemeName}</span>
-            <span class="tone">{theme.toneName}</span>
-          </span>
+          <span class="name">{theme.displayName}</span>
         </button>
       {/each}
     </div>
@@ -114,10 +110,10 @@
     position: absolute;
     bottom: calc(100% + 12px);
     right: 0;
-    background: rgba(20, 20, 24, 0.96);
+    background: color-mix(in srgb, var(--surface-2) 96%, transparent);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 12px;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
@@ -157,7 +153,7 @@
   }
 
   .pop-theme:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--hover);
   }
 
   .pop-theme.selected {
@@ -174,19 +170,8 @@
   }
 
   .name {
-    display: flex;
-    flex-direction: column;
-    gap: 1px;
-  }
-
-  .name .scheme {
     color: var(--text);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
-  }
-
-  .name .tone {
-    color: var(--text-dim);
-    font-size: 10px;
   }
 </style>

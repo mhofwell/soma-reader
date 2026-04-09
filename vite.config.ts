@@ -6,8 +6,7 @@ export default defineConfig({
   plugins: [svelte()],
   resolve: {
     alias: {
-      $lib: resolve(__dirname, 'src/lib'),
-      $components: resolve(__dirname, 'src/components')
+      $lib: resolve(__dirname, 'src/lib')
     }
   },
   optimizeDeps: {
