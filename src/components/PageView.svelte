@@ -5,6 +5,8 @@
   import { renderPageToCanvas } from '$lib/pdf/renderer';
   import { computeClosestPage } from '$lib/pdf/scroll-utils';
   import { resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
+  import { TextLayerBuilder, AnnotationLayerBuilder } from 'pdfjs-dist/web/pdf_viewer.mjs';
+  import { SomaLinkService } from '$lib/pdf/link-service';
 
   type PageDim = { width: number; height: number };
 
@@ -36,8 +38,8 @@
   interface PageLayers {
     canvas: HTMLCanvasElement;
     wrapper: HTMLDivElement;
-    textBuilder: { cancel(): void } | null;
-    annotBuilder: { cancel(): void } | null;
+    textBuilder: InstanceType<typeof TextLayerBuilder> | null;
+    annotBuilder: InstanceType<typeof AnnotationLayerBuilder> | null;
   }
 
   const renderedPages = new Map<number, PageLayers>();
@@ -48,6 +50,30 @@
   // user blows past never start rendering in the first place.
   const renderDispatchTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const RENDER_DISPATCH_DELAY_MS = 120;
+  const SMOOTH_SCROLL_THRESHOLD = 5;
+
+  const linkService = new SomaLinkService({
+    navigateToPage(pageNum: number) {
+      const clamped = Math.max(1, Math.min(pdf.numPages, pageNum));
+      const slot = slotsByPage.get(clamped);
+      if (!slot || !scrollContainer) return;
+
+      const distance = Math.abs(clamped - pdf.currentPage);
+      const behavior: ScrollBehavior = distance <= SMOOTH_SCROLL_THRESHOLD ? 'smooth' : 'instant';
+
+      isProgrammaticScroll = true;
+      if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
+      programmaticScrollTimer = setTimeout(() => {
+        isProgrammaticScroll = false;
+        programmaticScrollTimer = null;
+      }, behavior === 'smooth' ? 700 : 100);
+
+      slot.scrollIntoView({ block: 'start', behavior });
+      pdf.goToPage(clamped);
+    },
+    getCurrentPage: () => pdf.currentPage,
+    getPagesCount: () => pdf.numPages,
+  });
 
   // Cached slot measurements for the scroll handler. Rebuilt when pageDims
   // changes (the only time slot positions can change). The scroll handler
@@ -102,6 +128,8 @@
   $effect(() => {
     const doc = pdf.doc;
     const scale = ui.effectiveScale;
+
+    linkService.setDocument(doc);
 
     if (!doc) {
       pageDims = [];
@@ -292,10 +320,13 @@
       const page = await pdf.doc.getPage(pageNum);
       if (myToken !== renderTokens.get(pageNum)) return;
 
+      const viewport = page.getViewport({ scale: ui.effectiveScale });
+
       const wrapper = document.createElement('div');
       wrapper.style.position = 'relative';
       wrapper.style.setProperty('--scale-factor', String(ui.effectiveScale));
 
+      // ── Canvas ──
       const canvas = document.createElement('canvas');
       await renderPageToCanvas(page, canvas, {
         scale: ui.effectiveScale,
@@ -307,11 +338,46 @@
 
       wrapper.appendChild(canvas);
 
+      // ── Text Layer + Annotation Layer (concurrent, non-fatal) ──
+      let textBuilder: InstanceType<typeof TextLayerBuilder> | null = null;
+      let annotBuilder: InstanceType<typeof AnnotationLayerBuilder> | null = null;
+
+      const textPromise = (async () => {
+        const tb = new TextLayerBuilder({ pdfPage: page });
+        await tb.render(viewport);
+        wrapper.appendChild(tb.div);
+        return tb;
+      })();
+
+      const annotPromise = (async () => {
+        const ab = new AnnotationLayerBuilder({
+          pdfPage: page,
+          linkService,
+        });
+        await ab.render(viewport);
+        if (ab.div) wrapper.appendChild(ab.div);
+        return ab;
+      })();
+
+      const [textResult, annotResult] = await Promise.allSettled([
+        textPromise,
+        annotPromise,
+      ]);
+
+      if (myToken !== renderTokens.get(pageNum)) return;
+
+      if (textResult.status === 'fulfilled') {
+        textBuilder = textResult.value;
+      }
+      if (annotResult.status === 'fulfilled') {
+        annotBuilder = annotResult.value;
+      }
+
       renderedPages.set(pageNum, {
         canvas,
         wrapper,
-        textBuilder: null,
-        annotBuilder: null,
+        textBuilder,
+        annotBuilder,
       });
       slotsByPage.get(pageNum)?.replaceChildren(wrapper);
 
