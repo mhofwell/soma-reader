@@ -5,6 +5,8 @@
   import { renderPageToCanvas } from '$lib/pdf/renderer';
   import { computeClosestPage } from '$lib/pdf/scroll-utils';
   import { resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
+  import { TextLayer, AnnotationLayer } from 'pdfjs-dist';
+  import { SomaLinkService } from '$lib/pdf/link-service';
 
   type PageDim = { width: number; height: number };
 
@@ -32,8 +34,15 @@
   // reassigning with spread gives us reactive reads in the template.
   let pageErrors = $state<Record<number, string>>({});
 
-  // Non-reactive state: rendered canvases and token bookkeeping.
-  const renderedCanvases = new Map<number, HTMLCanvasElement>();
+  // Non-reactive state: rendered page layers and token bookkeeping.
+  interface PageLayers {
+    canvas: HTMLCanvasElement;
+    wrapper: HTMLDivElement;
+    textLayer: InstanceType<typeof TextLayer> | null;
+    textDiv: HTMLDivElement | null;
+  }
+
+  const renderedPages = new Map<number, PageLayers>();
   const renderTokens = new Map<number, number>();
   const evictionTimers = new Map<number, ReturnType<typeof setTimeout>>();
   // Debounced render dispatch: IntersectionObserver can fire many entries
@@ -41,6 +50,34 @@
   // user blows past never start rendering in the first place.
   const renderDispatchTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const RENDER_DISPATCH_DELAY_MS = 120;
+  const SMOOTH_SCROLL_THRESHOLD = 5;
+
+  const linkService = new SomaLinkService({
+    navigateToPage(pageNum: number) {
+      const clamped = Math.max(1, Math.min(pdf.numPages, pageNum));
+      const slot = slotsByPage.get(clamped);
+      if (!slot || !scrollContainer) return;
+
+      const distance = Math.abs(clamped - pdf.currentPage);
+      const behavior: ScrollBehavior = distance <= SMOOTH_SCROLL_THRESHOLD ? 'smooth' : 'instant';
+
+      isProgrammaticScroll = true;
+      if (programmaticScrollTimer) clearTimeout(programmaticScrollTimer);
+      programmaticScrollTimer = setTimeout(() => {
+        isProgrammaticScroll = false;
+        programmaticScrollTimer = null;
+      }, behavior === 'smooth' ? 700 : 100);
+
+      slot.scrollIntoView({ block: 'start', behavior });
+      // Suppress the programmatic-scroll $effect: we already scrolled with
+      // the distance-aware behavior, and its default is 'smooth' which
+      // would fire a second scrollIntoView on long jumps.
+      scrollOriginatedPage = clamped;
+      pdf.goToPage(clamped);
+    },
+    getCurrentPage: () => pdf.currentPage,
+    getPagesCount: () => pdf.numPages,
+  });
 
   // Cached slot measurements for the scroll handler. Rebuilt when pageDims
   // changes (the only time slot positions can change). The scroll handler
@@ -96,20 +133,24 @@
     const doc = pdf.doc;
     const scale = ui.effectiveScale;
 
+    linkService.setDocument(doc);
+
     if (!doc) {
       pageDims = [];
       return;
     }
 
-    // Invalidate all rendered canvases (scale change means stale pixels)
-    for (const pageNum of renderedCanvases.keys()) {
+    // Invalidate all rendered pages (scale change means stale pixels)
+    for (const pageNum of renderedPages.keys()) {
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
     }
-    for (const canvas of renderedCanvases.values()) {
-      canvas.width = 0;
-      canvas.height = 0;
+    for (const layers of renderedPages.values()) {
+      layers.textLayer?.cancel();
+      if (layers.textDiv) unregisterTextLayer(layers.textDiv);
+      layers.canvas.width = 0;
+      layers.canvas.height = 0;
     }
-    renderedCanvases.clear();
+    renderedPages.clear();
     for (const slot of slotsByPage.values()) {
       slot.replaceChildren();
     }
@@ -145,15 +186,20 @@
     };
   });
 
-  /** Invalidate all currently-rendered canvases and re-render them. Used
+  /** Invalidate all currently-rendered pages and re-render them. Used
    *  by both the theme-change and DPR-change effects (same operation,
    *  different trigger). */
   function rerenderVisiblePages(): void {
-    for (const pageNum of Array.from(renderedCanvases.keys())) {
+    for (const pageNum of Array.from(renderedPages.keys())) {
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
-      const canvas = renderedCanvases.get(pageNum);
-      if (canvas) { canvas.width = 0; canvas.height = 0; }
-      renderedCanvases.delete(pageNum);
+      const layers = renderedPages.get(pageNum);
+      if (layers) {
+        layers.textLayer?.cancel();
+        if (layers.textDiv) unregisterTextLayer(layers.textDiv);
+        layers.canvas.width = 0;
+        layers.canvas.height = 0;
+      }
+      renderedPages.delete(pageNum);
       slotsByPage.get(pageNum)?.replaceChildren();
       void renderPage(pageNum);
     }
@@ -208,7 +254,7 @@
                 clearTimeout(evictTimer);
                 evictionTimers.delete(pageNum);
               }
-              if (!renderedCanvases.has(pageNum)) {
+              if (!renderedPages.has(pageNum)) {
                 // Debounce render dispatch: during fast scroll the observer
                 // fires for many pages in quick succession. Delaying the
                 // dispatch lets us skip pages the user blows past.
@@ -229,7 +275,7 @@
               }
               // Schedule eviction after grace period for already-rendered pages
               if (
-                renderedCanvases.has(pageNum) &&
+                renderedPages.has(pageNum) &&
                 !evictionTimers.has(pageNum)
               ) {
                 const timer = setTimeout(() => {
@@ -269,6 +315,48 @@
     };
   });
 
+  // ── Text selection handling ──
+  // Mirrors the essential behavior of TextLayerBuilder.#bindMouse() from
+  // pdf.js: adds .selecting on mousedown (which expands endOfContent to
+  // cover the page), and cleans up on pointerup. Without this, the
+  // browser can't properly drag-select across absolutely-positioned spans.
+  const activeTextLayers = new Set<HTMLDivElement>();
+
+  function resetTextLayer(container: HTMLDivElement): void {
+    container.classList.remove('selecting');
+  }
+
+  function resetAllTextLayers(): void {
+    activeTextLayers.forEach(resetTextLayer);
+  }
+
+  // Register global cleanup listeners once per component instance. Named
+  // handlers so onDestroy can remove them — without this, remounting the
+  // component (e.g., on doc reset) would stack duplicate listeners on
+  // document/window that fire for the page lifetime.
+  document.addEventListener('pointerup', resetAllTextLayers);
+  window.addEventListener('blur', resetAllTextLayers);
+
+  function bindTextLayerSelection(container: HTMLDivElement): void {
+    activeTextLayers.add(container);
+
+    container.addEventListener('mousedown', () => {
+      container.classList.add('selecting');
+    });
+
+    container.addEventListener('copy', (event) => {
+      const selection = document.getSelection();
+      if (selection && event.clipboardData) {
+        event.clipboardData.setData('text/plain', selection.toString());
+      }
+      event.preventDefault();
+    });
+  }
+
+  function unregisterTextLayer(container: HTMLDivElement): void {
+    activeTextLayers.delete(container);
+  }
+
   async function renderPage(pageNum: number): Promise<void> {
     if (!pdf.doc) return;
     const myToken = (renderTokens.get(pageNum) ?? 0) + 1;
@@ -278,6 +366,13 @@
       const page = await pdf.doc.getPage(pageNum);
       if (myToken !== renderTokens.get(pageNum)) return;
 
+      const viewport = page.getViewport({ scale: ui.effectiveScale });
+
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.style.setProperty('--scale-factor', String(ui.effectiveScale));
+
+      // ── Canvas ──
       const canvas = document.createElement('canvas');
       await renderPageToCanvas(page, canvas, {
         scale: ui.effectiveScale,
@@ -287,8 +382,78 @@
 
       if (myToken !== renderTokens.get(pageNum)) return;
 
-      renderedCanvases.set(pageNum, canvas);
-      slotsByPage.get(pageNum)?.replaceChildren(canvas);
+      wrapper.appendChild(canvas);
+
+      // ── Text Layer + Annotation Layer (concurrent, non-fatal) ──
+      let textLayerInstance: InstanceType<typeof TextLayer> | null = null;
+      let textDiv: HTMLDivElement | null = null;
+
+      const textPromise = (async () => {
+        const container = document.createElement('div');
+        container.className = 'textLayer';
+        const tl = new TextLayer({
+          textContentSource: page.streamTextContent({ includeMarkedContent: true, disableNormalization: true }),
+          container,
+          viewport,
+        });
+        await tl.render();
+        // endOfContent div enables cross-line drag selection. It starts
+        // below the text layer (inset: 100% 0 0) and expands to cover it
+        // when .selecting is active, giving the browser a continuous
+        // selection target across absolutely-positioned spans.
+        const endOfContent = document.createElement('div');
+        endOfContent.className = 'endOfContent';
+        container.append(endOfContent);
+        bindTextLayerSelection(container);
+        wrapper.appendChild(container);
+        return { tl, container };
+      })();
+
+      const annotPromise = (async () => {
+        const allAnnotations = await page.getAnnotations({ intent: 'display' });
+        // Only render Link annotations (type 2). Other annotation types
+        // (FreeText, Popup, Stamp, Widget, etc.) produce visible DOM
+        // elements with text/UI that we don't want overlaid on the canvas.
+        const annotations = allAnnotations.filter((a: { annotationType: number }) => a.annotationType === 2);
+        if (annotations.length === 0) return;
+        const div = document.createElement('div');
+        div.className = 'annotationLayer';
+        const al = new AnnotationLayer({
+          div,
+          page,
+          viewport: viewport.clone({ dontFlip: true }),
+        });
+        await al.render({
+          annotations,
+          linkService,
+        });
+        wrapper.appendChild(div);
+      })();
+
+      const [textResult, annotResult] = await Promise.allSettled([
+        textPromise,
+        annotPromise,
+      ]);
+
+      if (myToken !== renderTokens.get(pageNum)) return;
+
+      if (textResult.status === 'fulfilled' && textResult.value) {
+        textLayerInstance = textResult.value.tl;
+        textDiv = textResult.value.container;
+      } else if (textResult.status === 'rejected') {
+        console.warn(`Text layer failed for page ${pageNum}:`, textResult.reason);
+      }
+      if (annotResult.status === 'rejected') {
+        console.warn(`Annotation layer failed for page ${pageNum}:`, annotResult.reason);
+      }
+
+      renderedPages.set(pageNum, {
+        canvas,
+        wrapper,
+        textLayer: textLayerInstance,
+        textDiv,
+      });
+      slotsByPage.get(pageNum)?.replaceChildren(wrapper);
 
       if (pageErrors[pageNum]) {
         const next = { ...pageErrors };
@@ -307,13 +472,16 @@
   }
 
   function evictPage(pageNum: number): void {
-    const canvas = renderedCanvases.get(pageNum);
-    if (canvas) {
-      // Zero the canvas so the browser can GC the backing bitmap.
-      canvas.width = 0;
-      canvas.height = 0;
-      renderedCanvases.delete(pageNum);
-    }
+    const layers = renderedPages.get(pageNum);
+    if (!layers) return;
+
+    layers.textLayer?.cancel();
+    if (layers.textDiv) unregisterTextLayer(layers.textDiv);
+    // Zero the canvas so the browser can GC the backing bitmap.
+    layers.canvas.width = 0;
+    layers.canvas.height = 0;
+
+    renderedPages.delete(pageNum);
     slotsByPage.get(pageNum)?.replaceChildren();
   }
 
@@ -387,11 +555,15 @@
     evictionTimers.clear();
     for (const timer of renderDispatchTimers.values()) clearTimeout(timer);
     renderDispatchTimers.clear();
-    for (const canvas of renderedCanvases.values()) {
-      canvas.width = 0;
-      canvas.height = 0;
+    for (const layers of renderedPages.values()) {
+      layers.textLayer?.cancel();
+      if (layers.textDiv) unregisterTextLayer(layers.textDiv);
+      layers.canvas.width = 0;
+      layers.canvas.height = 0;
     }
-    renderedCanvases.clear();
+    renderedPages.clear();
+    document.removeEventListener('pointerup', resetAllTextLayers);
+    window.removeEventListener('blur', resetAllTextLayers);
   });
 </script>
 
