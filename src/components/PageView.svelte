@@ -5,7 +5,7 @@
   import { renderPageToCanvas } from '$lib/pdf/renderer';
   import { computeClosestPage } from '$lib/pdf/scroll-utils';
   import { resolveActiveTheme, setActiveTheme } from '$lib/doq-bridge';
-  import { TextLayerBuilder, AnnotationLayerBuilder } from 'pdfjs-dist/web/pdf_viewer.mjs';
+  import { TextLayer, AnnotationLayer } from 'pdfjs-dist';
   import { SomaLinkService } from '$lib/pdf/link-service';
 
   type PageDim = { width: number; height: number };
@@ -38,8 +38,8 @@
   interface PageLayers {
     canvas: HTMLCanvasElement;
     wrapper: HTMLDivElement;
-    textBuilder: InstanceType<typeof TextLayerBuilder> | null;
-    annotBuilder: InstanceType<typeof AnnotationLayerBuilder> | null;
+    textLayer: InstanceType<typeof TextLayer> | null;
+    textDiv: HTMLDivElement | null;
   }
 
   const renderedPages = new Map<number, PageLayers>();
@@ -69,6 +69,10 @@
       }, behavior === 'smooth' ? 700 : 100);
 
       slot.scrollIntoView({ block: 'start', behavior });
+      // Suppress the programmatic-scroll $effect: we already scrolled with
+      // the distance-aware behavior, and its default is 'smooth' which
+      // would fire a second scrollIntoView on long jumps.
+      scrollOriginatedPage = clamped;
       pdf.goToPage(clamped);
     },
     getCurrentPage: () => pdf.currentPage,
@@ -141,8 +145,8 @@
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
     }
     for (const layers of renderedPages.values()) {
-      layers.textBuilder?.cancel();
-      layers.annotBuilder?.cancel();
+      layers.textLayer?.cancel();
+      if (layers.textDiv) unregisterTextLayer(layers.textDiv);
       layers.canvas.width = 0;
       layers.canvas.height = 0;
     }
@@ -190,8 +194,8 @@
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
       const layers = renderedPages.get(pageNum);
       if (layers) {
-        layers.textBuilder?.cancel();
-        layers.annotBuilder?.cancel();
+        layers.textLayer?.cancel();
+        if (layers.textDiv) unregisterTextLayer(layers.textDiv);
         layers.canvas.width = 0;
         layers.canvas.height = 0;
       }
@@ -311,6 +315,48 @@
     };
   });
 
+  // ── Text selection handling ──
+  // Mirrors the essential behavior of TextLayerBuilder.#bindMouse() from
+  // pdf.js: adds .selecting on mousedown (which expands endOfContent to
+  // cover the page), and cleans up on pointerup. Without this, the
+  // browser can't properly drag-select across absolutely-positioned spans.
+  const activeTextLayers = new Set<HTMLDivElement>();
+
+  function resetTextLayer(container: HTMLDivElement): void {
+    container.classList.remove('selecting');
+  }
+
+  function resetAllTextLayers(): void {
+    activeTextLayers.forEach(resetTextLayer);
+  }
+
+  // Register global cleanup listeners once per component instance. Named
+  // handlers so onDestroy can remove them — without this, remounting the
+  // component (e.g., on doc reset) would stack duplicate listeners on
+  // document/window that fire for the page lifetime.
+  document.addEventListener('pointerup', resetAllTextLayers);
+  window.addEventListener('blur', resetAllTextLayers);
+
+  function bindTextLayerSelection(container: HTMLDivElement): void {
+    activeTextLayers.add(container);
+
+    container.addEventListener('mousedown', () => {
+      container.classList.add('selecting');
+    });
+
+    container.addEventListener('copy', (event) => {
+      const selection = document.getSelection();
+      if (selection && event.clipboardData) {
+        event.clipboardData.setData('text/plain', selection.toString());
+      }
+      event.preventDefault();
+    });
+  }
+
+  function unregisterTextLayer(container: HTMLDivElement): void {
+    activeTextLayers.delete(container);
+  }
+
   async function renderPage(pageNum: number): Promise<void> {
     if (!pdf.doc) return;
     const myToken = (renderTokens.get(pageNum) ?? 0) + 1;
@@ -339,24 +385,49 @@
       wrapper.appendChild(canvas);
 
       // ── Text Layer + Annotation Layer (concurrent, non-fatal) ──
-      let textBuilder: InstanceType<typeof TextLayerBuilder> | null = null;
-      let annotBuilder: InstanceType<typeof AnnotationLayerBuilder> | null = null;
+      let textLayerInstance: InstanceType<typeof TextLayer> | null = null;
+      let textDiv: HTMLDivElement | null = null;
 
       const textPromise = (async () => {
-        const tb = new TextLayerBuilder({ pdfPage: page });
-        await tb.render(viewport);
-        wrapper.appendChild(tb.div);
-        return tb;
+        const container = document.createElement('div');
+        container.className = 'textLayer';
+        const tl = new TextLayer({
+          textContentSource: page.streamTextContent({ includeMarkedContent: true, disableNormalization: true }),
+          container,
+          viewport,
+        });
+        await tl.render();
+        // endOfContent div enables cross-line drag selection. It starts
+        // below the text layer (inset: 100% 0 0) and expands to cover it
+        // when .selecting is active, giving the browser a continuous
+        // selection target across absolutely-positioned spans.
+        const endOfContent = document.createElement('div');
+        endOfContent.className = 'endOfContent';
+        container.append(endOfContent);
+        bindTextLayerSelection(container);
+        wrapper.appendChild(container);
+        return { tl, container };
       })();
 
       const annotPromise = (async () => {
-        const ab = new AnnotationLayerBuilder({
-          pdfPage: page,
+        const allAnnotations = await page.getAnnotations({ intent: 'display' });
+        // Only render Link annotations (type 2). Other annotation types
+        // (FreeText, Popup, Stamp, Widget, etc.) produce visible DOM
+        // elements with text/UI that we don't want overlaid on the canvas.
+        const annotations = allAnnotations.filter((a: { annotationType: number }) => a.annotationType === 2);
+        if (annotations.length === 0) return;
+        const div = document.createElement('div');
+        div.className = 'annotationLayer';
+        const al = new AnnotationLayer({
+          div,
+          page,
+          viewport: viewport.clone({ dontFlip: true }),
+        });
+        await al.render({
+          annotations,
           linkService,
         });
-        await ab.render(viewport);
-        if (ab.div) wrapper.appendChild(ab.div);
-        return ab;
+        wrapper.appendChild(div);
       })();
 
       const [textResult, annotResult] = await Promise.allSettled([
@@ -366,18 +437,21 @@
 
       if (myToken !== renderTokens.get(pageNum)) return;
 
-      if (textResult.status === 'fulfilled') {
-        textBuilder = textResult.value;
+      if (textResult.status === 'fulfilled' && textResult.value) {
+        textLayerInstance = textResult.value.tl;
+        textDiv = textResult.value.container;
+      } else if (textResult.status === 'rejected') {
+        console.warn(`Text layer failed for page ${pageNum}:`, textResult.reason);
       }
-      if (annotResult.status === 'fulfilled') {
-        annotBuilder = annotResult.value;
+      if (annotResult.status === 'rejected') {
+        console.warn(`Annotation layer failed for page ${pageNum}:`, annotResult.reason);
       }
 
       renderedPages.set(pageNum, {
         canvas,
         wrapper,
-        textBuilder,
-        annotBuilder,
+        textLayer: textLayerInstance,
+        textDiv,
       });
       slotsByPage.get(pageNum)?.replaceChildren(wrapper);
 
@@ -401,8 +475,8 @@
     const layers = renderedPages.get(pageNum);
     if (!layers) return;
 
-    layers.textBuilder?.cancel();
-    layers.annotBuilder?.cancel();
+    layers.textLayer?.cancel();
+    if (layers.textDiv) unregisterTextLayer(layers.textDiv);
     // Zero the canvas so the browser can GC the backing bitmap.
     layers.canvas.width = 0;
     layers.canvas.height = 0;
@@ -482,12 +556,14 @@
     for (const timer of renderDispatchTimers.values()) clearTimeout(timer);
     renderDispatchTimers.clear();
     for (const layers of renderedPages.values()) {
-      layers.textBuilder?.cancel();
-      layers.annotBuilder?.cancel();
+      layers.textLayer?.cancel();
+      if (layers.textDiv) unregisterTextLayer(layers.textDiv);
       layers.canvas.width = 0;
       layers.canvas.height = 0;
     }
     renderedPages.clear();
+    document.removeEventListener('pointerup', resetAllTextLayers);
+    window.removeEventListener('blur', resetAllTextLayers);
   });
 </script>
 

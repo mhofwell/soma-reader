@@ -10,7 +10,7 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['pdfjs-dist', 'pdfjs-dist/web/pdf_viewer.mjs']
+    include: ['pdfjs-dist']
   },
   worker: {
     format: 'es'
