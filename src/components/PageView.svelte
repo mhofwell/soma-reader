@@ -32,8 +32,15 @@
   // reassigning with spread gives us reactive reads in the template.
   let pageErrors = $state<Record<number, string>>({});
 
-  // Non-reactive state: rendered canvases and token bookkeeping.
-  const renderedCanvases = new Map<number, HTMLCanvasElement>();
+  // Non-reactive state: rendered page layers and token bookkeeping.
+  interface PageLayers {
+    canvas: HTMLCanvasElement;
+    wrapper: HTMLDivElement;
+    textBuilder: { cancel(): void } | null;
+    annotBuilder: { cancel(): void } | null;
+  }
+
+  const renderedPages = new Map<number, PageLayers>();
   const renderTokens = new Map<number, number>();
   const evictionTimers = new Map<number, ReturnType<typeof setTimeout>>();
   // Debounced render dispatch: IntersectionObserver can fire many entries
@@ -101,15 +108,17 @@
       return;
     }
 
-    // Invalidate all rendered canvases (scale change means stale pixels)
-    for (const pageNum of renderedCanvases.keys()) {
+    // Invalidate all rendered pages (scale change means stale pixels)
+    for (const pageNum of renderedPages.keys()) {
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
     }
-    for (const canvas of renderedCanvases.values()) {
-      canvas.width = 0;
-      canvas.height = 0;
+    for (const layers of renderedPages.values()) {
+      layers.textBuilder?.cancel();
+      layers.annotBuilder?.cancel();
+      layers.canvas.width = 0;
+      layers.canvas.height = 0;
     }
-    renderedCanvases.clear();
+    renderedPages.clear();
     for (const slot of slotsByPage.values()) {
       slot.replaceChildren();
     }
@@ -145,15 +154,20 @@
     };
   });
 
-  /** Invalidate all currently-rendered canvases and re-render them. Used
+  /** Invalidate all currently-rendered pages and re-render them. Used
    *  by both the theme-change and DPR-change effects (same operation,
    *  different trigger). */
   function rerenderVisiblePages(): void {
-    for (const pageNum of Array.from(renderedCanvases.keys())) {
+    for (const pageNum of Array.from(renderedPages.keys())) {
       renderTokens.set(pageNum, (renderTokens.get(pageNum) ?? 0) + 1);
-      const canvas = renderedCanvases.get(pageNum);
-      if (canvas) { canvas.width = 0; canvas.height = 0; }
-      renderedCanvases.delete(pageNum);
+      const layers = renderedPages.get(pageNum);
+      if (layers) {
+        layers.textBuilder?.cancel();
+        layers.annotBuilder?.cancel();
+        layers.canvas.width = 0;
+        layers.canvas.height = 0;
+      }
+      renderedPages.delete(pageNum);
       slotsByPage.get(pageNum)?.replaceChildren();
       void renderPage(pageNum);
     }
@@ -208,7 +222,7 @@
                 clearTimeout(evictTimer);
                 evictionTimers.delete(pageNum);
               }
-              if (!renderedCanvases.has(pageNum)) {
+              if (!renderedPages.has(pageNum)) {
                 // Debounce render dispatch: during fast scroll the observer
                 // fires for many pages in quick succession. Delaying the
                 // dispatch lets us skip pages the user blows past.
@@ -229,7 +243,7 @@
               }
               // Schedule eviction after grace period for already-rendered pages
               if (
-                renderedCanvases.has(pageNum) &&
+                renderedPages.has(pageNum) &&
                 !evictionTimers.has(pageNum)
               ) {
                 const timer = setTimeout(() => {
@@ -278,6 +292,10 @@
       const page = await pdf.doc.getPage(pageNum);
       if (myToken !== renderTokens.get(pageNum)) return;
 
+      const wrapper = document.createElement('div');
+      wrapper.style.position = 'relative';
+      wrapper.style.setProperty('--scale-factor', String(ui.effectiveScale));
+
       const canvas = document.createElement('canvas');
       await renderPageToCanvas(page, canvas, {
         scale: ui.effectiveScale,
@@ -287,8 +305,15 @@
 
       if (myToken !== renderTokens.get(pageNum)) return;
 
-      renderedCanvases.set(pageNum, canvas);
-      slotsByPage.get(pageNum)?.replaceChildren(canvas);
+      wrapper.appendChild(canvas);
+
+      renderedPages.set(pageNum, {
+        canvas,
+        wrapper,
+        textBuilder: null,
+        annotBuilder: null,
+      });
+      slotsByPage.get(pageNum)?.replaceChildren(wrapper);
 
       if (pageErrors[pageNum]) {
         const next = { ...pageErrors };
@@ -307,13 +332,16 @@
   }
 
   function evictPage(pageNum: number): void {
-    const canvas = renderedCanvases.get(pageNum);
-    if (canvas) {
-      // Zero the canvas so the browser can GC the backing bitmap.
-      canvas.width = 0;
-      canvas.height = 0;
-      renderedCanvases.delete(pageNum);
-    }
+    const layers = renderedPages.get(pageNum);
+    if (!layers) return;
+
+    layers.textBuilder?.cancel();
+    layers.annotBuilder?.cancel();
+    // Zero the canvas so the browser can GC the backing bitmap.
+    layers.canvas.width = 0;
+    layers.canvas.height = 0;
+
+    renderedPages.delete(pageNum);
     slotsByPage.get(pageNum)?.replaceChildren();
   }
 
@@ -387,11 +415,13 @@
     evictionTimers.clear();
     for (const timer of renderDispatchTimers.values()) clearTimeout(timer);
     renderDispatchTimers.clear();
-    for (const canvas of renderedCanvases.values()) {
-      canvas.width = 0;
-      canvas.height = 0;
+    for (const layers of renderedPages.values()) {
+      layers.textBuilder?.cancel();
+      layers.annotBuilder?.cancel();
+      layers.canvas.width = 0;
+      layers.canvas.height = 0;
     }
-    renderedCanvases.clear();
+    renderedPages.clear();
   });
 </script>
 
